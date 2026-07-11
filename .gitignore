@@ -27,3 +27,16 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Seed image assets — kept out of the repo to stay lean. LegacyMediaSeeder
+# skips the media import gracefully when this directory is absent.
+/database/seeders/assets
+
+# Generated / temporary media-library files
+/storage/media-library
+
+# Local AI/agent tooling (not part of the app)
+/.claude
+/.codex
+/.agents
+/.mcp.json

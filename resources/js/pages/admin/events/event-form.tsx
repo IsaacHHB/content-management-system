@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 
-import { BlockBuilder } from '@/blocks/block-builder';
+import { BlockEditor } from '@/blocks/block-editor';
 import {
     Card,
     FormRow,
@@ -368,9 +368,10 @@ export default function EventForm({ item }: { item?: NdnEvent }) {
                         </Card>
 
                         <Card title="Description">
-                            <BlockBuilder
+                            <BlockEditor
                                 value={form.data.description as Block[]}
                                 onChange={(b) => form.setData('description', b)}
+                                title={form.data.title}
                             />
                         </Card>
                     </div>

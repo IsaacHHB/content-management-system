@@ -13,6 +13,7 @@ import {
     Users,
     Calendar,
     ChevronsUpDown,
+    Handshake,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 
@@ -729,6 +730,59 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
             </div>
         ),
     },
+    partners: {
+        label: 'Partners',
+        icon: Handshake,
+        defaultData: { heading: 'Our partners & funders' },
+        Editor: ({ data, onChange }) => (
+            <div className="space-y-3">
+                <Input
+                    placeholder="Heading"
+                    value={data.heading ?? ''}
+                    onChange={(e) =>
+                        onChange(set(data, 'heading', e.target.value))
+                    }
+                />
+                <p className="text-xs text-muted-foreground">
+                    Shows every active partner. Manage the list under Partners.
+                </p>
+            </div>
+        ),
+        Render: ({ data }) => (
+            <div className={wrap}>
+                {data.heading && (
+                    <h2 className="mb-4 text-2xl font-bold">{data.heading}</h2>
+                )}
+                <div className="flex flex-wrap items-center gap-x-10 gap-y-6">
+                    {(data.partners ?? []).map((p: Data) => {
+                        const logo = p.logo?.url ? (
+                            <img
+                                src={p.logo.url}
+                                alt={p.name}
+                                title={p.name}
+                                className="h-16 w-auto max-w-44 object-contain"
+                            />
+                        ) : (
+                            <span className="font-medium">{p.name}</span>
+                        );
+
+                        return p.website_url ? (
+                            <a
+                                key={p.id}
+                                href={p.website_url}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                {logo}
+                            </a>
+                        ) : (
+                            <span key={p.id}>{logo}</span>
+                        );
+                    })}
+                </div>
+            </div>
+        ),
+    },
     accordion: {
         label: 'Accordion',
         icon: ChevronsUpDown,
@@ -920,6 +974,7 @@ export const BLOCK_ORDER: BlockType[] = [
     'events_list',
     'news_list',
     'team_grid',
+    'partners',
     'divider',
     'spacer',
 ];

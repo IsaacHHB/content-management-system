@@ -21,6 +21,7 @@ class BlockRenderer
         'events_list' => ['count', 'heading'],
         'news_list' => ['count', 'heading'],
         'team_grid' => ['heading', 'member_ids'],
+        'partners' => ['heading'],
         'accordion' => ['heading', 'items'],
         'divider' => ['style'],
         'spacer' => ['size'],

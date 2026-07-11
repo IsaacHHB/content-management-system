@@ -60,6 +60,7 @@ export type BlockType =
     | 'events_list'
     | 'news_list'
     | 'team_grid'
+    | 'partners'
     | 'accordion'
     | 'divider'
     | 'spacer';
@@ -185,6 +186,7 @@ export type TeamMember = Timestamps &
         name: string;
         slug: string;
         title: string;
+        group: 'staff' | 'board';
         bio: string;
         email: string | null;
         show_email: boolean;
@@ -192,6 +194,18 @@ export type TeamMember = Timestamps &
         show_phone: boolean;
         photo_media_asset_id: number | null;
         photo?: MediaAsset | null;
+        sort_order: number;
+        is_active: boolean;
+    };
+
+export type Partner = Timestamps &
+    Audited & {
+        id: number;
+        name: string;
+        slug: string;
+        website_url: string | null;
+        logo_media_asset_id: number | null;
+        logo?: MediaAsset | null;
         sort_order: number;
         is_active: boolean;
     };

@@ -6,6 +6,7 @@ use App\Contracts\SoftDeletableContent;
 use App\Models\Concerns\HasEditorialAudit;
 use App\Models\Concerns\HasReusableSlug;
 use App\Models\Concerns\RecordsActivity;
+use App\Services\TeamOgImageGenerator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -20,13 +21,35 @@ class TeamMember extends Model implements SoftDeletableContent
     }
 
     protected $fillable = [
-        'name', 'slug', 'title', 'bio', 'email', 'show_email', 'phone', 'show_phone',
-        'photo_media_asset_id', 'sort_order', 'is_active', 'created_by', 'updated_by',
+        'name', 'slug', 'title', 'group', 'bio', 'email', 'show_email', 'phone', 'show_phone',
+        'photo_media_asset_id', 'og_image_path', 'sort_order', 'is_active', 'created_by', 'updated_by',
     ];
 
     protected function casts(): array
     {
         return ['show_email' => 'boolean', 'show_phone' => 'boolean', 'is_active' => 'boolean'];
+    }
+
+    protected static function booted(): void
+    {
+        // Regenerate the social share image whenever the name, title, or photo
+        // changes. saveQuietly() persists the new path without re-firing saved.
+        static::saved(function (TeamMember $member): void {
+            if (! $member->wasRecentlyCreated && ! $member->wasChanged(['name', 'title', 'photo_media_asset_id'])) {
+                return;
+            }
+
+            $path = app(TeamOgImageGenerator::class)->generate($member->load('photo.media'));
+
+            if ($path !== null && $path !== $member->og_image_path) {
+                $member->og_image_path = $path;
+                $member->saveQuietly();
+            }
+        });
+
+        static::forceDeleted(function (TeamMember $member): void {
+            app(TeamOgImageGenerator::class)->delete($member);
+        });
     }
 
     public function getSlugOptions(): SlugOptions

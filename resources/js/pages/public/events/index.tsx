@@ -66,7 +66,17 @@ export default function EventsIndex({ upcoming, past, seo }: EventsIndexProps) {
             <SeoHead seo={seo} />
 
             <div className="mx-auto max-w-6xl px-4 py-12">
-                <h1 className="text-3xl font-bold tracking-tight">Events</h1>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Events
+                    </h1>
+                    <Link
+                        href="/events/calendar"
+                        className="text-sm font-medium underline"
+                    >
+                        Calendar view
+                    </Link>
+                </div>
 
                 <section className="mt-10">
                     <h2 className="text-xl font-semibold">Upcoming</h2>

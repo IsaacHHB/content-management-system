@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\InviteController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\MenuController;
 use App\Http\Controllers\Admin\PageController;
+use App\Http\Controllers\Admin\PartnerController;
 use App\Http\Controllers\Admin\PostController;
 use App\Http\Controllers\Admin\PreviewLinkController;
 use App\Http\Controllers\Admin\ProgramController;
@@ -28,7 +29,12 @@ Route::middleware(['auth', 'ndn.domain', 'verified', 'superadmin.2fa'])
         Route::patch('programs/reorder', [ProgramController::class, 'reorder'])->name('programs.reorder');
         Route::patch('galleries/reorder', [GalleryController::class, 'reorder'])->name('galleries.reorder');
         Route::patch('team/reorder', [TeamMemberController::class, 'reorder'])->name('team.reorder');
+        Route::patch('partners/reorder', [PartnerController::class, 'reorder'])->name('partners.reorder');
         Route::post('preview-links/{type}/{id}', PreviewLinkController::class)->name('preview-links.store');
+        Route::patch('pages/{page}/blocks', [PageController::class, 'updateBlocks'])->name('pages.update-blocks');
+        Route::patch('programs/{program}/blocks', [ProgramController::class, 'updateBlocks'])->name('programs.update-blocks');
+        Route::patch('posts/{post}/blocks', [PostController::class, 'updateBlocks'])->name('posts.update-blocks');
+        Route::patch('events/{event}/blocks', [EventController::class, 'updateBlocks'])->name('events.update-blocks');
         Route::post('pages/{page}/restore', [PageController::class, 'restore'])->name('pages.restore');
         Route::delete('pages/{page}/force', [PageController::class, 'forceDelete'])->name('pages.force-delete');
         Route::post('programs/{program}/restore', [ProgramController::class, 'restore'])->name('programs.restore');
@@ -41,6 +47,8 @@ Route::middleware(['auth', 'ndn.domain', 'verified', 'superadmin.2fa'])
         Route::delete('galleries/{gallery}/force', [GalleryController::class, 'forceDelete'])->name('galleries.force-delete');
         Route::post('team/{teamMember}/restore', [TeamMemberController::class, 'restore'])->name('team.restore');
         Route::delete('team/{teamMember}/force', [TeamMemberController::class, 'forceDelete'])->name('team.force-delete');
+        Route::post('partners/{partner}/restore', [PartnerController::class, 'restore'])->name('partners.restore');
+        Route::delete('partners/{partner}/force', [PartnerController::class, 'forceDelete'])->name('partners.force-delete');
         Route::resource('pages', PageController::class)->except('show');
         Route::resource('programs', ProgramController::class)->except('show');
         Route::resource('events', EventController::class)->except('show');
@@ -48,6 +56,7 @@ Route::middleware(['auth', 'ndn.domain', 'verified', 'superadmin.2fa'])
         Route::apiResource('categories', CategoryController::class)->only(['store', 'update', 'destroy']);
         Route::resource('galleries', GalleryController::class)->except('show');
         Route::resource('team', TeamMemberController::class)->except('show')->parameters(['team' => 'teamMember']);
+        Route::resource('partners', PartnerController::class)->except('show');
         Route::resource('media', MediaController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('menus', MenuController::class)->only(['index', 'update']);
         Route::get('settings', [SettingController::class, 'edit'])->name('settings.edit');
@@ -69,7 +78,7 @@ Route::middleware('guest')->group(function () {
         ->middleware(['signed', 'throttle:5,1'])->name('invite.accept');
 });
 
-Route::middleware(['signed', 'throttle:30,1'])->prefix('preview')->name('preview.')->group(function () {
+Route::middleware(['signed', 'throttle:30,1', \App\Http\Middleware\NoStoreCache::class])->prefix('preview')->name('preview.')->group(function () {
     Route::get('pages/{page}', [PreviewController::class, 'page'])->name('pages');
     Route::get('programs/{program}', [PreviewController::class, 'program'])->name('programs');
     Route::get('events/{event}', [PreviewController::class, 'event'])->name('events');

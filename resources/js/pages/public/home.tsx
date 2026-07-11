@@ -145,30 +145,42 @@ export default function Home({
 
             <section className="bg-neutral-50">
                 <div className="mx-auto max-w-6xl px-4 py-12">
-                    <h2 className="text-2xl font-bold">Our Team</h2>
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <h2 className="text-2xl font-bold">Our Team</h2>
+                        <Link
+                            href="/about/team"
+                            className="text-sm font-medium underline"
+                        >
+                            Meet the whole team
+                        </Link>
+                    </div>
                     <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
                         {team.map((member) => (
-                            <div key={member.id} className="text-center">
+                            <Link
+                                key={member.id}
+                                href={`/about/team/${member.slug}`}
+                                className="group text-center"
+                            >
                                 {member.photo?.thumb_url ? (
                                     <img
                                         src={member.photo.thumb_url}
                                         alt={
                                             member.photo.alt_text ?? member.name
                                         }
-                                        className="mx-auto size-24 rounded-full object-cover"
+                                        className="mx-auto size-24 rounded-full object-cover transition group-hover:opacity-90"
                                     />
                                 ) : (
                                     <div className="mx-auto flex size-24 items-center justify-center rounded-full bg-neutral-200 text-neutral-500">
                                         {member.name.charAt(0)}
                                     </div>
                                 )}
-                                <p className="mt-3 font-semibold">
+                                <p className="mt-3 font-semibold group-hover:underline">
                                     {member.name}
                                 </p>
                                 <p className="text-sm text-neutral-600">
                                     {member.title}
                                 </p>
-                            </div>
+                            </Link>
                         ))}
                         {team.length === 0 && (
                             <p className="text-sm text-neutral-500">

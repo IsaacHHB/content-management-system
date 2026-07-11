@@ -18,10 +18,12 @@ test('authorized editors can create signed preview links for drafts', function (
         ->assertOk()
         ->json('url');
 
-    $this->getJson($url)
+    // The signed URL renders the draft in the real public layout.
+    $this->get($url)
         ->assertOk()
-        ->assertJsonPath('title', 'Unpublished Preview')
-        ->assertJsonPath('status', 'draft');
+        ->assertInertia(fn ($p) => $p
+            ->component('public/page')
+            ->where('page.title', 'Unpublished Preview'));
 });
 
 test('unsigned preview requests are rejected', function () {

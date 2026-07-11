@@ -1,11 +1,14 @@
 import { Link, usePage } from '@inertiajs/react';
 import type { PropsWithChildren } from 'react';
 
+import { PartnersStrip } from '@/components/public/partners-strip';
+import type { PublicPartner } from '@/components/public/partners-strip';
 import type { MenuItem } from '@/types/models';
 
 type PublicShared = {
     settings: Record<string, string | null>;
     publicMenus?: { header: MenuItem[]; footer: MenuItem[] };
+    publicPartners?: PublicPartner[];
 };
 
 export default function PublicLayout({ children }: PropsWithChildren) {
@@ -15,6 +18,8 @@ export default function PublicLayout({ children }: PropsWithChildren) {
         header: [],
         footer: [],
     };
+    const partners =
+        (page.props.publicPartners as PublicShared['publicPartners']) ?? [];
     const siteName = settings.site_name ?? 'Native Dads Network';
 
     return (
@@ -51,7 +56,9 @@ export default function PublicLayout({ children }: PropsWithChildren) {
                 {children}
             </main>
 
-            <footer className="mt-16 border-t bg-neutral-50">
+            <PartnersStrip partners={partners} />
+
+            <footer className="border-t bg-neutral-50">
                 <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-3">
                     <div>
                         <p className="font-semibold">{siteName}</p>

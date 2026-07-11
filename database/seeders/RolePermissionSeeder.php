@@ -13,7 +13,7 @@ class RolePermissionSeeder extends Seeder
     public function run(): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-        $contentModules = ['pages', 'programs', 'events', 'posts', 'galleries', 'team'];
+        $contentModules = ['pages', 'programs', 'events', 'posts', 'galleries', 'team', 'partners'];
         $permissions = [];
 
         foreach ($contentModules as $module) {
@@ -39,7 +39,7 @@ class RolePermissionSeeder extends Seeder
             'content.restore',
             'content.force-delete',
         ], true))));
-        $editor->syncPermissions(array_values(array_filter($permissions, fn (string $permission) => preg_match('/^(pages|programs|events|posts|galleries|team)\.(view|create|update|delete|publish)$/', $permission) === 1
+        $editor->syncPermissions(array_values(array_filter($permissions, fn (string $permission) => preg_match('/^(pages|programs|events|posts|galleries|team|partners)\.(view|create|update|delete|publish)$/', $permission) === 1
             || $permission === 'media.manage')));
     }
 }

@@ -78,7 +78,13 @@ class MediaAsset extends Model implements HasMedia
 
     public function registerMediaConversions(?Media $media = null): void
     {
-        if ($this->type !== 'image') {
+        // Detect "is image" from the file medialibrary passes in, not from
+        // $this->type: medialibrary registers conversions against a bare
+        // `new MediaAsset` (type null), so branching on the model attribute
+        // would suppress every conversion. Using $media also keeps this method
+        // free of model state, avoiding a serialization recursion between the
+        // thumb_url accessor and $media->model.
+        if ($media !== null && ! str_starts_with((string) $media->mime_type, 'image/')) {
             return;
         }
 

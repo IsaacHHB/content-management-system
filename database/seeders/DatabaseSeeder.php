@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             SettingSeeder::class,
             SuperAdminSeeder::class,
             AdminSeeder::class,
+            LegacyMediaSeeder::class,
             LegacyContentSeeder::class,
         ]);
     }

@@ -132,6 +132,41 @@
     --sidebar-ring: oklch(0.439 0 0);
 }
 
+/*
+ * The visual editor canvas always shows the white public page, regardless of
+ * the admin's dark/light theme. Re-declare the light palette here so the admin
+ * UI controls inside the canvas (add-block button, toolbars, settings inputs)
+ * stay readable on white instead of inheriting the dark theme.
+ */
+.canvas-light {
+    /*
+     * Override Tailwind's resolved --color-* tokens directly (not the source
+     * --background vars): @theme resolves `--color-background: var(--background)`
+     * once at :root — under .dark that's the dark value, and it inherits down —
+     * so re-declaring --background here would have no effect.
+     */
+    --color-background: oklch(1 0 0);
+    --color-foreground: oklch(0.145 0 0);
+    --color-card: oklch(1 0 0);
+    --color-card-foreground: oklch(0.145 0 0);
+    --color-popover: oklch(1 0 0);
+    --color-popover-foreground: oklch(0.145 0 0);
+    --color-primary: oklch(0.205 0 0);
+    --color-primary-foreground: oklch(0.985 0 0);
+    --color-secondary: oklch(0.97 0 0);
+    --color-secondary-foreground: oklch(0.205 0 0);
+    --color-muted: oklch(0.97 0 0);
+    --color-muted-foreground: oklch(0.556 0 0);
+    --color-accent: oklch(0.97 0 0);
+    --color-accent-foreground: oklch(0.205 0 0);
+    --color-destructive: oklch(0.577 0.245 27.325);
+    --color-destructive-foreground: oklch(0.577 0.245 27.325);
+    --color-border: oklch(0.922 0 0);
+    --color-input: oklch(0.922 0 0);
+    --color-ring: oklch(0.87 0 0);
+    color-scheme: light;
+}
+
 @layer base {
     * {
         @apply border-border;

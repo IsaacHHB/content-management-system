@@ -26,7 +26,7 @@ test('an editor can delete their own team member', function () {
     $editor->assignRole('editor');
 
     $this->actingAs($editor)->postJson(route('admin.team.store'), [
-        'name' => 'Jane Doe', 'title' => 'Director', 'bio' => 'Bio',
+        'name' => 'Jane Doe', 'title' => 'Director', 'group' => 'staff', 'bio' => 'Bio',
         'show_email' => false, 'show_phone' => false, 'is_active' => true,
     ])->assertRedirect();
     $created = TeamMember::latest('id')->first();

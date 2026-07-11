@@ -10,9 +10,11 @@ import {
     ListOrdered,
     Quote,
 } from 'lucide-react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { Toggle } from '@/components/ui/toggle';
+import { cn } from '@/lib/utils';
 import type { TiptapDoc } from '@/types/models';
 
 const EMPTY: TiptapDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -116,18 +118,28 @@ function extensions() {
 export function TiptapEditor({
     value,
     onChange,
+    seamless = false,
 }: {
     value: TiptapDoc | null | undefined;
     onChange: (doc: TiptapDoc) => void;
+    // seamless: no border/chrome and the toolbar only appears on focus, so the
+    // text reads like the published page until an editor clicks into it. Used by
+    // the visual (staging) editor.
+    seamless?: boolean;
 }) {
+    const [focused, setFocused] = useState(false);
     const editor = useEditor({
         extensions: extensions(),
         content: (value ?? EMPTY) as Content,
         editorProps: {
             attributes: {
-                class: 'prose prose-sm max-w-none min-h-32 rounded-md border p-3 focus:outline-none',
+                class: seamless
+                    ? 'prose max-w-none focus:outline-none'
+                    : 'prose prose-sm max-w-none min-h-32 rounded-md border p-3 focus:outline-none',
             },
         },
+        onFocus: () => setFocused(true),
+        onBlur: () => setFocused(false),
         onUpdate: ({ editor }) => onChange(editor.getJSON() as TiptapDoc),
     });
 
@@ -135,9 +147,21 @@ export function TiptapEditor({
         return null;
     }
 
+    const showToolbar = !seamless || focused;
+
     return (
-        <div className="space-y-2">
-            <div className="flex flex-wrap gap-1">
+        <div className={cn('space-y-2', seamless && 'relative')}>
+            <div
+                // preventDefault on mousedown keeps focus in the editor so the
+                // toolbar doesn't blur-and-vanish before the click registers.
+                onMouseDown={(e) => e.preventDefault()}
+                className={cn(
+                    'flex flex-wrap gap-1',
+                    seamless &&
+                        'absolute -top-11 left-0 z-20 rounded-md border bg-popover p-1 shadow-md',
+                    seamless && !showToolbar && 'hidden',
+                )}
+            >
                 <Toggle
                     size="sm"
                     pressed={editor.isActive('bold')}

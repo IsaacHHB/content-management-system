@@ -10,9 +10,11 @@ use App\Services\BlockHydrator;
 use App\Services\BlockRenderer;
 use App\Services\MediaReferenceSynchronizer;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -43,6 +45,16 @@ abstract class ContentController extends Controller
      * @return array<int, string>
      */
     protected function editRelations(): array
+    {
+        return [];
+    }
+
+    /**
+     * Extra relations to eager-load on the index screen (e.g. a logo thumbnail).
+     *
+     * @return array<int, string>
+     */
+    protected function indexRelations(): array
     {
         return [];
     }
@@ -80,7 +92,7 @@ abstract class ContentController extends Controller
         [$sortColumn, $sortDir] = $this->defaultSort();
 
         $items = $model::query()
-            ->with('updatedByUser:id,name')
+            ->with('updatedByUser:id,name', ...$this->indexRelations())
             ->when($request->string('search')->isNotEmpty(), fn ($query) => $query->where($this->searchColumn(), 'like', '%'.$request->string('search').'%'))
             ->when($request->string('status')->isNotEmpty(), fn ($query) => $query->where('status', $request->string('status')))
             ->orderBy($sortColumn, $sortDir === 'asc' ? 'asc' : 'desc')
@@ -139,8 +151,62 @@ abstract class ContentController extends Controller
 
         return Inertia::render("admin/{$this->key()}/edit", [
             'item' => $payload,
+            'previewUrl' => $this->previewUrl($item),
+            'blocksUrl' => $this->hasPreview() ? route("admin.{$this->key()}.update-blocks", $item) : null,
             ...$this->formProps($item),
         ]);
+    }
+
+    /** Whether this content type has a block field and a public preview route. */
+    private function hasPreview(): bool
+    {
+        return $this->blockField() !== null
+            && in_array($this->key(), ['pages', 'programs', 'posts', 'events'], true);
+    }
+
+    /**
+     * A signed URL that renders this record's saved draft in the real public
+     * layout — the src for the visual editor's Preview iframe. Null for content
+     * types without a preview route.
+     */
+    protected function previewUrl(Model $item): ?string
+    {
+        if (! $this->hasPreview()) {
+            return null;
+        }
+
+        $type = $this->key();
+
+        return URL::temporarySignedRoute(
+            "preview.{$type}",
+            now()->addHours(6),
+            [str($type)->singular()->toString() => $item->getKey()],
+        );
+    }
+
+    /**
+     * Saves only the block field as a draft — used by the visual editor so that
+     * clicking "Preview" persists the current blocks before the iframe reloads
+     * the real page. Returns JSON so it can be called from a background fetch
+     * without an Inertia navigation. Other attributes are left untouched.
+     */
+    public function updateBlocks(Request $request, BlockRenderer $blocks, MediaReferenceSynchronizer $references): JsonResponse
+    {
+        $item = $this->resolveModel($request);
+        $this->authorize('update', $item);
+
+        $field = $this->blockField();
+        abort_if($field === null, 404, 'This content type has no editable blocks.');
+
+        $data = $request->validate(['blocks' => ['present', 'array']]);
+        $sanitized = $blocks->sanitize($data['blocks']);
+
+        DB::transaction(function () use ($request, $item, $field, $sanitized, $references): void {
+            $item->update([$field => $sanitized, 'updated_by' => $request->user()->id]);
+            $this->afterSave($item, [$field => $sanitized], $references);
+        });
+
+        return response()->json(['ok' => true]);
     }
 
     public function update(Request $request, BlockRenderer $blocks, MediaReferenceSynchronizer $references): RedirectResponse

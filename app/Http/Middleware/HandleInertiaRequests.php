@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Setting;
+use App\Services\SiteChrome;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -52,6 +53,18 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
             ],
             'settings' => fn () => Setting::allCached(),
+            // Header/footer menus + partners, for the admin visual editor's page
+            // preview. Only for authenticated users (public pages get their own
+            // publicMenus/publicPartners); cached, so this is a cheap lookup.
+            'siteChrome' => $user
+                ? fn () => [
+                    'menus' => app(SiteChrome::class)->menus(),
+                    'partners' => app(SiteChrome::class)->partners(),
+                ]
+                : null,
+            // Sample content so newly-added list blocks preview live in the
+            // visual editor. Authenticated (admin) only.
+            'blockPreviews' => $user ? fn () => app(SiteChrome::class)->blockPreviews() : null,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

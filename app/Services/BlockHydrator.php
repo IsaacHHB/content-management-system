@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Event;
 use App\Models\Gallery;
 use App\Models\MediaAsset;
+use App\Models\Partner;
 use App\Models\Post;
 use App\Models\TeamMember;
 use Illuminate\Support\Collection;
@@ -88,6 +89,9 @@ class BlockHydrator
                     $query->whereIn('id', $ids);
                 }
                 $data['members'] = $query->get();
+                break;
+            case 'partners':
+                $data['partners'] = Partner::query()->where('is_active', true)->with('logo.media')->orderBy('sort_order')->get();
                 break;
         }
 

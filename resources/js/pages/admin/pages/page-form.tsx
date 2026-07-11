@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 
-import { BlockBuilder } from '@/blocks/block-builder';
+import { BlockEditor } from '@/blocks/block-editor';
 import {
     Card,
     FormRow,
@@ -197,9 +197,10 @@ export default function PageForm({
                         </Card>
 
                         <Card title="Content">
-                            <BlockBuilder
+                            <BlockEditor
                                 value={form.data.blocks}
                                 onChange={(b) => form.setData('blocks', b)}
+                                title={form.data.title}
                             />
                         </Card>
                     </div>

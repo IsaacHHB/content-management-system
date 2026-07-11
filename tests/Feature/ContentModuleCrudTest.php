@@ -79,13 +79,13 @@ test('galleries synchronize ordered assets with required accessible alt text', f
 
 test('team members support visibility controls and reordering', function () {
     $this->actingAs($this->admin)->postJson(route('admin.team.store'), [
-        'name' => 'First Member', 'title' => 'Director', 'bio' => 'Biography',
+        'name' => 'First Member', 'title' => 'Director', 'group' => 'staff', 'bio' => 'Biography',
         'email' => 'first@nativedadsnetwork.org', 'show_email' => false,
         'show_phone' => false, 'is_active' => true, 'sort_order' => 0,
     ])->assertRedirect();
     $first = TeamMember::latest('id')->first();
     $this->postJson(route('admin.team.store'), [
-        'name' => 'Second Member', 'title' => 'Coordinator', 'bio' => 'Biography',
+        'name' => 'Second Member', 'title' => 'Coordinator', 'group' => 'board', 'bio' => 'Biography',
         'show_email' => false, 'show_phone' => false, 'is_active' => true, 'sort_order' => 1,
     ])->assertRedirect();
     $second = TeamMember::latest('id')->first();

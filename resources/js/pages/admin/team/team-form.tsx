@@ -6,6 +6,13 @@ import { PageHeader } from '@/components/cms/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { TeamMember } from '@/types/models';
@@ -14,6 +21,7 @@ type TeamMemberFormData = {
     name: string;
     slug: string;
     title: string;
+    group: 'staff' | 'board';
     bio: string;
     email: string;
     show_email: boolean;
@@ -29,6 +37,7 @@ export default function TeamMemberForm({ item }: { item?: TeamMember }) {
         name: item?.name ?? '',
         slug: item?.slug ?? '',
         title: item?.title ?? '',
+        group: item?.group ?? 'staff',
         bio: item?.bio ?? '',
         email: item?.email ?? '',
         show_email: item?.show_email ?? false,
@@ -86,14 +95,49 @@ export default function TeamMemberForm({ item }: { item?: TeamMember }) {
                                     }
                                 />
                             </FormRow>
-                            <FormRow label="Title" error={form.errors.title}>
-                                <Input
-                                    value={form.data.title}
-                                    onChange={(e) =>
-                                        form.setData('title', e.target.value)
-                                    }
-                                />
-                            </FormRow>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <FormRow
+                                    label="Title"
+                                    error={form.errors.title}
+                                >
+                                    <Input
+                                        value={form.data.title}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'title',
+                                                e.target.value,
+                                            )
+                                        }
+                                    />
+                                </FormRow>
+                                <FormRow
+                                    label="Group"
+                                    error={form.errors.group}
+                                    hint="Staff and board are shown as separate tabs on the public team page."
+                                >
+                                    <Select
+                                        value={form.data.group}
+                                        onValueChange={(v) =>
+                                            form.setData(
+                                                'group',
+                                                v as 'staff' | 'board',
+                                            )
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="staff">
+                                                Staff
+                                            </SelectItem>
+                                            <SelectItem value="board">
+                                                Board
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormRow>
+                            </div>
                             <FormRow label="Bio" error={form.errors.bio}>
                                 <Textarea
                                     value={form.data.bio}

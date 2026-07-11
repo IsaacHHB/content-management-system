@@ -3,6 +3,7 @@ import {
     Activity,
     Calendar,
     FileText,
+    Handshake,
     Image,
     Images,
     LayoutGrid,
@@ -78,6 +79,12 @@ const groups: { label: string; items: Item[] }[] = [
                 href: '/admin/team',
                 icon: Users,
                 can: 'team.view',
+            },
+            {
+                title: 'Partners',
+                href: '/admin/partners',
+                icon: Handshake,
+                can: 'partners.view',
             },
             {
                 title: 'Media',

@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * @property mixed $value JSON-cast: string, int, array, or null depending on the key.
+ */
 class Setting extends Model
 {
     protected $fillable = ['key', 'value', 'group'];

@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 
-import { BlockBuilder } from '@/blocks/block-builder';
+import { BlockEditor } from '@/blocks/block-editor';
 import { CategoryManager } from '@/components/cms/category-manager';
 import {
     Card,
@@ -138,9 +138,10 @@ export default function PostForm({
                         </Card>
 
                         <Card title="Content">
-                            <BlockBuilder
+                            <BlockEditor
                                 value={form.data.blocks as Block[]}
                                 onChange={(b) => form.setData('blocks', b)}
+                                title={form.data.title}
                             />
                         </Card>
 

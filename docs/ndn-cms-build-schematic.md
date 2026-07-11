@@ -2,9 +2,10 @@
 
 **Project:** Complete rebuild of nativedadsnetwork.org
 **Builder:** Isaac Hollow Horn Bear — The Lakota Dev
-**Stack:** Laravel 13 (official React starter kit) + Inertia 3 + React 19 + TypeScript + MySQL 9.7 LTS (latest 9.7.x patch) + AWS (EC2 + S3 + CloudFront + SES), served by Ubuntu-maintained Apache 2.4 + PHP-FPM 8.5
+**Stack:** Laravel 13 (official React starter kit) + Inertia 3 + React 19 + TypeScript + MySQL 9.7 LTS (latest 9.7.x patch) + AWS (EC2 + CloudFront + SES; S3 for off-box backups only), served by Ubuntu-maintained Apache 2.4 + PHP-FPM 8.5
 **Admin access model:** Invite-only, hard-locked to `@nativedadsnetwork.org` email addresses
-**Document version:** 1.1 — July 2026 (architecture and dependency review applied)
+**Media storage:** Local disk on the app server (EBS-backed `storage/app/public`), served through CloudFront — S3 is **not** used for media at this scale; the media library disk is a one-line config switch if that ever changes
+**Document version:** 1.2 — July 2026 (storage simplified to local disk; architecture and dependency review applied)
 
 ---
 
@@ -19,7 +20,7 @@
 7. [Roles & Permissions](#7-roles--permissions)
 8. [CMS Modules](#8-cms-modules)
 9. [Page Builder (Block System)](#9-page-builder-block-system)
-10. [Media Library (S3)](#10-media-library-s3)
+10. [Media Library (local disk)](#10-media-library-local-disk)
 11. [Public Site Rendering & SEO](#11-public-site-rendering--seo)
 12. [Content Migration Plan](#12-content-migration-plan)
 13. [AWS Infrastructure](#13-aws-infrastructure)
@@ -46,7 +47,7 @@ Native Dads Network (NDN) needs a modern, mobile-friendly website that its own t
 | Create and edit pages | Block-based page builder with draft/publish workflow |
 | Manage programs, events, news, photos, team | Dedicated CRUD modules for each content type |
 | Migration of existing content | Scripted scrape + import of current site content and media |
-| AWS setup, security, deployment | Single EC2 + S3 + CloudFront + SES, hardened, ~$20–50/mo |
+| AWS setup, security, deployment | Single EC2 (media on EBS) + CloudFront + SES + S3 backups, hardened, ~$20–50/mo |
 | Training & documentation | Admin manual + screencasts + this document |
 | Team owns it | Everything in NDN-owned AWS account and GitHub org; no vendor lock-in |
 
@@ -76,9 +77,10 @@ Apache 2.4 (event MPM) ──► PHP-FPM 8.5 (mod_proxy_fcgi) ──► Laravel 
                           ├── routes/admin.php (CMS, Inertia, auth-gated)
                           │
                           ├── MySQL 9.7 LTS (content, users, invites)
-                          ├── S3 (media originals + conversions)
+                          ├── Local disk / EBS (media originals + conversions, storage/app/public)
                           ├── Redis (cache, sessions, queues) — optional; database driver is fine at this scale
                           └── SES (invite + password reset emails)
+                          (S3 is used only for nightly off-box backups — Section 15)
 ```
 
 Why this beats a separate API + SPA for NDN:
@@ -96,10 +98,10 @@ Why this beats a separate API + SPA for NDN:
 | Auth scaffolding | `laravel/fortify` (headless) | Included in the starter kit: login, password reset, email verification, 2FA — React pages, no Blade |
 | UI components | shadcn/ui (Radix primitives) | Included in the starter kit; accessible, owned-in-repo components — no component library dependency to outgrow |
 | Roles/permissions | `spatie/laravel-permission` | De-facto standard, cached, well-documented |
-| Media | `spatie/laravel-medialibrary` | S3 driver, automatic conversions (thumb/medium/large/webp), responsive images |
+| Media | `spatie/laravel-medialibrary` | Local `public` disk (EBS) by default, automatic conversions (thumb/medium/large/webp), responsive images; disk is a config switch (`MEDIA_DISK`) so S3 remains available without code changes |
 | Slugs | `spatie/laravel-sluggable` | Auto slug generation with uniqueness |
 | Activity/audit log | `spatie/laravel-activitylog` | "Who changed what, when" for every model |
-| Backups | `spatie/laravel-backup` | Nightly DB + media manifest to S3 |
+| Backups | `spatie/laravel-backup` | Nightly DB + media directory to S3 (the only S3 use) |
 | Sitemap | `spatie/laravel-sitemap` | Auto-generated sitemap.xml |
 | Rich text | Tiptap (React) | Modern, JSON-based, sanitizable — used inside the block builder |
 | Styling | Tailwind CSS 4 | CSS-first config (`@theme`), faster builds, easy for future maintainers |
@@ -274,9 +276,16 @@ SESSION_DRIVER=database
 QUEUE_CONNECTION=database
 CACHE_STORE=database
 
-FILESYSTEM_DISK=s3          # local disk in dev if preferred
-AWS_BUCKET=ndn-media
-AWS_DEFAULT_REGION=us-west-2
+# --- MEDIA STORAGE (local disk; no S3 for media) ---
+FILESYSTEM_DISK=local
+MEDIA_DISK=public           # storage/app/public, exposed via `php artisan storage:link`
+# To move media to S3 later, set MEDIA_DISK=s3 and fill the AWS_* keys below — no code change.
+# AWS_BUCKET=ndn-media
+# AWS_DEFAULT_REGION=us-west-2
+
+# --- Off-box backups only (Section 15) ---
+BACKUP_DISK=s3
+AWS_BACKUP_BUCKET=ndn-backups
 
 MAIL_MAILER=ses
 MAIL_FROM_ADDRESS=no-reply@nativedadsnetwork.org
@@ -879,7 +888,7 @@ trait HasPublishing
 ### 8.5 Photo Galleries
 
 - Gallery = title + description + ordered photo set.
-- Photos upload straight to S3 (multipart, up to ~20 at a time), auto-converted to thumb/medium/large + WebP.
+- Photos upload to the media library on local disk (up to ~20 at a time), auto-converted to thumb/medium/large + WebP by queued jobs.
 - Per-photo caption and alt text fields (alt text required — accessibility is enforced at the form level).
 - Public: `/gallery` grid of galleries → lightbox viewer per gallery.
 
@@ -1036,17 +1045,20 @@ export default function BlockRenderer({ blocks }: { blocks: Block[] }) {
 
 ---
 
-## 10. Media Library (S3)
+## 10. Media Library (local disk)
 
-`spatie/laravel-medialibrary` with the `s3` disk.
+`spatie/laravel-medialibrary` on the **`public` disk** (`storage/app/public`, exposed at `/storage` via `php artisan storage:link`). The old site shipped its images directly in the project tree; a CMS can't do that (uploads would land in git and vanish on deploy), so instead files live on the server's persistent EBS volume, outside the repo, and are served through CloudFront.
 
-- **Bucket:** `ndn-media`, private (Block Public Access ON). All delivery goes through CloudFront with Origin Access Control — no public S3 URLs, ever.
+**Why not S3 at this scale.** S3 earns its keep only when you run more than one app server (shared storage), your host wipes the filesystem on deploy (ephemeral), or you need CDN-scale media offload. A single EC2 box with a persistent EBS volume and a media footprint in the low hundreds of MB hits none of those. Local disk is simpler, cheaper, has no extra IAM/CORS/presign surface, and — because medialibrary addresses files by disk — **moving to S3 later is a one-line `MEDIA_DISK=s3` change**, never a rewrite. So S3 stays available but unused for media; it is used only for nightly off-box backups (Section 15).
+
+- **Disk & delivery:** `MEDIA_DISK=public` → `storage/app/public`, symlinked to `public/storage`. CloudFront caches `/storage/*` (long-lived, immutable hashed conversion paths) with the EC2 box as origin. Apache is configured to **never execute PHP** from under `public/storage` (Section 13 vhost), so an uploaded file can never run as code.
 - **Asset model:** a dedicated `media_assets` table/model owns the underlying Spatie record and global metadata (alt text, caption defaults, credit, focal point, status). Galleries and content blocks reference the asset instead of attaching duplicate media rows.
 - **Conversions** generated on upload via queued jobs: `thumb` (400px), `medium` (800px), `large` (1600px), each also as WebP; originals retained.
-- **Upload flow:** the server issues short-lived, content-length-limited presigned multipart requests to a quarantine prefix. A finalize endpoint verifies ownership, size, magic-byte MIME, image decoding, and checksum before creating the asset and moving it to its permanent key. A scheduled command removes abandoned multipart uploads/quarantine objects. S3 CORS allows only the production/staging admin origins and required methods/headers.
+- **Upload flow:** files POST to the app (`multipart/form-data`) into a temporary location; a finalize step verifies ownership, size, magic-byte MIME, image decoding, and checksum before creating the asset and moving it onto the media disk. A scheduled command sweeps abandoned temp files. (No presigned-URL/quarantine-bucket dance is needed with a local disk — the app already sits in the request path.)
 - **Upload constraints:** images `jpg/png/webp/heic` ≤ 15 MB (HEIC transcoded on upload); documents `pdf` ≤ 25 MB (for flyers, program applications). MIME is sniffed and decoded server-side, not extension-trusted. Production provisioning installs Imagick/ImageMagick with HEIF support and tests HEIC conversion during deploy/health checks.
 - **Central media screen** in the CMS: grid, search by filename/alt, see which content uses each file, edit alt text globally, delete (blocked if in use).
 - **EXIF stripped** on upload (privacy — photos of families and youth may carry GPS data). This matters for NDN's community photos.
+- **Backup coverage:** because media lives on the box (not in a versioned bucket), the media directory is included in the nightly backup set (Section 15.3) so a lost EBS volume is recoverable.
 - Responsive `srcset` generated by medialibrary and consumed by the shared `<Img>` React component.
 
 ---
@@ -1093,7 +1105,7 @@ Route 53 (nativedadsnetwork.org)
     ├── CloudFront (CDN) ── ACM cert (us-east-1)
     │       ├── default origin ──► EC2 (Apache; dynamic caching disabled)
     │       ├── /build/* origin ─► EC2 (immutable hashed assets)
-    │       └── /media/* origin ──► S3 ndn-media (Origin Access Control)
+    │       └── /storage/* origin ─► EC2 (media on EBS via storage:link, long-lived cache)
     │
     ├── EC2 t3a.small (2 vCPU, 2GB) — Ubuntu 24.04 LTS
     │       ├── Ubuntu-maintained Apache 2.4 (event MPM) + PHP-FPM 8.5 via mod_proxy_fcgi
@@ -1102,19 +1114,19 @@ Route 53 (nativedadsnetwork.org)
     │       ├── EBS gp3 30GB, encrypted
     │       └── Elastic IP
     │
-    ├── S3: ndn-media (uploads), ndn-backups (versioned, lifecycle 90d → Glacier)
+    ├── S3: ndn-backups only (versioned, lifecycle 90d → Glacier) — media is on EBS, not S3
     ├── SES (invite/reset/contact emails; domain verified, DKIM+SPF+DMARC)
     └── CloudWatch (alarms: CPU, disk, status checks) + AWS Budgets alert at $50
 ```
 
 Provisioning notes:
 
-- **CloudFront behaviors:** the default Laravel/Inertia behavior forwards required methods, query strings, headers, and cookies and uses minimum/default/maximum TTL `0`; it must never cache authenticated, CSRF, preview, invite, or `Set-Cookie` responses. Only `/build/*` and `/media/*` receive long-lived cache policies. The `/media/*` S3 key prefix/origin path is tested explicitly.
+- **CloudFront behaviors:** the default Laravel/Inertia behavior forwards required methods, query strings, headers, and cookies and uses minimum/default/maximum TTL `0`; it must never cache authenticated, CSRF, preview, invite, or `Set-Cookie` responses. Only `/build/*` and `/storage/*` (media) receive long-lived cache policies. The `/storage/*` behavior is tested explicitly, and Apache blocks PHP execution under that path.
 - **Origin protection:** ports 80/443 accept CloudFront origin traffic, and Apache requires a rotated secret origin header added by CloudFront (with a controlled exception for certificate renewal/health administration). This prevents direct Elastic-IP access from bypassing CloudFront. Port 22 remains closed; use SSM Session Manager.
-- **IAM:** EC2 uses an instance role scoped to the two buckets + SES send; no long-lived keys exist on the box. GitHub Actions uses a repository-, environment-, and branch-restricted OIDC role with temporary credentials—not an IAM user/access key.
+- **IAM:** EC2 uses an instance role scoped to the backups bucket + SES send; no long-lived keys exist on the box. GitHub Actions uses a repository-, environment-, and branch-restricted OIDC role with temporary credentials—not an IAM user/access key.
 - **MySQL local vs RDS:** local MySQL keeps the bill ≈ $25/mo. Nightly dumps to S3 (Section 15) cover durability. If NDN's funding recovers, `RDS db.t4g.micro` (~+$15/mo) is a one-evening migration.
 - **capacity:** begin with `t3a.small` only after a production-like load test and explicit PHP-FPM/MySQL/SSR memory limits. Build frontend assets in CI, not on the 2GB production server. A 2GB swapfile is an OOM safety net, not capacity; upgrade to a 4GB instance if normal peak memory approaches the limit.
-- **staging isolation:** same-box staging has its own `APP_KEY`, database/user, session cookie name/domain, cache prefix, queue prefix, S3 prefix, logs, Supervisor processes, and scheduler policy so it cannot collide with production.
+- **staging isolation:** same-box staging has its own `APP_KEY`, database/user, session cookie name/domain, cache prefix, queue prefix, media storage path + backup prefix, logs, Supervisor processes, and scheduler policy so it cannot collide with production.
 - **SES:** request production access before launch and configure bounce/complaint event handling and suppression monitoring in addition to DKIM, SPF, and DMARC.
 - **Unattended-upgrades** enabled for daily security patches, with reboots handled by the automated monthly maintenance window (Section 15.2); PHP from the ondrej/php PPA, Apache from Ubuntu's maintained packages.
 
@@ -1306,7 +1318,7 @@ Enable once: `chmod +x /usr/local/bin/ndn-maintenance.sh && systemctl daemon-rel
 
 ### 15.3 Backups
 
-- **Nightly (automated, Section 15.1)** `spatie/laravel-backup`: mysqldump + a **redacted** configuration inventory → `ndn-backups` S3 bucket (versioned, encrypted, lifecycle to Glacier after 90 days, retained 1 year). Never place plaintext `.env` secrets in the normal backup archive; recovery secrets live in Parameter Store/Secrets Manager or a separately encrypted, separately authorized recovery package. Coordinate Spatie cleanup with S3 versioning/noncurrent-version lifecycle so the combined policy really retains one year without unbounded storage.
+- **Nightly (automated, Section 15.1)** `spatie/laravel-backup`: mysqldump + the media directory (`storage/app/public`) + a **redacted** configuration inventory → `ndn-backups` S3 bucket (versioned, encrypted, lifecycle to Glacier after 90 days, retained 1 year). Because media lives on EBS rather than a versioned bucket, including it here is what makes uploaded photos recoverable after a lost volume. Never place plaintext `.env` secrets in the normal backup archive; recovery secrets live in Parameter Store/Secrets Manager or a separately encrypted, separately authorized recovery package. Coordinate Spatie cleanup with S3 versioning/noncurrent-version lifecycle so the combined policy really retains one year without unbounded storage.
 - **Weekly automated restore test** to a scratch database on the same box (`backup:restore-test` custom command, scheduled `weeklyOn(0, '02:00')`) — a backup that's never been restored is a rumor.
 
 ### 15.4 Monitoring & logging
@@ -1330,7 +1342,7 @@ Application:
 - [x] Block content sanitized server-side; no raw-HTML block exists
 - [x] Signed URLs for invites and draft previews
 - [x] Rate limiting: login 5/min, invite accept 5/min, contact form 3/10min
-- [x] File uploads: MIME-sniffed, size-capped, EXIF-stripped, served from CloudFront not the app box
+- [x] File uploads: MIME-sniffed, size-capped, EXIF-stripped; stored on EBS outside the repo, served through CloudFront with PHP execution denied under `public/storage`
 - [x] Security headers via middleware: CSP with a per-request Laravel Vite nonce (`Vite::useCspNonce()`), X-Frame-Options DENY, X-Content-Type-Options, `Referrer-Policy: no-referrer`, and HSTS (preload only after every applicable subdomain is confirmed HTTPS-ready)
 - [x] `APP_DEBUG=false` in production; verbose errors never leak
 
@@ -1338,7 +1350,7 @@ Infrastructure:
 
 - [x] SSH via SSM only (or key-only + IP-restricted); root login disabled; fail2ban if port 22 stays open
 - [x] ufw: only 80/443 exposed
-- [x] Private S3 + Origin Access Control; zero public buckets
+- [x] Media on EBS (not S3); the only bucket is the private `ndn-backups` (Block Public Access ON, encrypted); zero public buckets
 - [x] IAM least-privilege instance role; no static AWS keys in `.env` on the server
 - [x] Encrypted EBS, encrypted S3 (SSE-S3), TLS 1.2+ only at CloudFront
 - [x] Unattended security upgrades; monthly manual patch review during support year
@@ -1420,8 +1432,8 @@ Realistic part-time schedule (~10–12 weeks calendar time):
 |---|---|
 | EC2 t3a.small (on-demand) | ~$14 |
 | Public IPv4 / Elastic IP (~730h × $0.005) | ~$3.65 |
-| EBS 30GB gp3 + snapshots | ~$3 |
-| S3 (media + backups, ~20GB) | ~$1 |
+| EBS 30GB gp3 + snapshots (holds app + media) | ~$3 |
+| S3 (backups only, ~10GB versioned) | ~$0.50 |
 | CloudFront (low traffic tier) | ~$1–3 |
 | Route 53 hosted zone | $0.50 |
 | SES (transactional volume) | < $1 |
