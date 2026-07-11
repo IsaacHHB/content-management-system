@@ -71,10 +71,26 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] `npm run types:check`, `npm run lint:check`, `npm run format:check` clean.
 - [x] `npm run build` and `npm run build:ssr` succeed.
 - [x] Backend `pint` + `phpstan` (level 7) clean after the conversion.
-- [~] Pest suite updated for Inertia responses (in progress — being brought back to green).
-- [ ] Manual smoke of each admin flow and public page.
+- [x] Pest suite updated for Inertia responses — 85 passed / 2 skipped.
+- [x] Manual smoke: public home + admin dashboard + program block editor verified in a real browser session.
+
+## Requested enhancements (planned — July 11, 2026)
+
+Design ground rules (confirmed): the public site's visual/brand design is a **blank slate**, fully restyleable later without touching content. The CMS team edits **content** (text/media) and **layout + order** (block builder); the theme/look of each block is developer-controlled. **Workflow:** the design will be produced in Claude Design; once approved, an agent here re-implements the theme + block components against it — globally, without re-entering any content.
+
+**Source material — use the legacy repo, not live-site scraping:** https://github.com/NativeDadsNetwork/Nativedads (public). It contains the full static HTML of the old site (exact copy for board/staff bios, programs, about — `director.html`, `boardChair.html`, `purpose.html`, `wellness.html`, etc.) **and `img/` with 407 real images**: `img/partners` (funder logos — 7th Generation Fund, California Endowment, Elevate Youth California, Native Voices Rising, Common Counsel), `img/avatars` (team photos), `img/gallery` + `img/newGallery`, `img/logos` (NDN logo + Boys With Braids + fatherhood), `img/mural-project`. This upgrades every migration/enhancement item below with real copy + assets.
+
+- [ ] **Calendar view for events.** A public month-grid calendar of published events (in addition to the current upcoming/past lists), events clickable to their detail page; optional admin calendar view. Uses the existing event date/timezone data.
+
+- [ ] **Import real assets + copy from the legacy repo.** Pull `img/*` into the media library (team avatars, partner logos, gallery, mural, org logo/favicon), and enrich `LegacyContentSeeder` with the exact board/staff roster + bios and program/about copy from the repo's HTML. Replaces the placeholder "Laravel Starter Kit" logo with the real NDN logo.
+
+- [ ] **Partners module.** A dedicated Partners CRUD (name, logo image, website URL, sort_order, is_active) mirroring the Team module — fits the existing content-module pattern. Add a `partners` block for pages + a partners/funders strip on the home page and footer, replacing the single `partner_banner` setting. Seed the legacy funders (7th Generation Vitality Grant, Elevate Youth California, Common Counsel Foundation, Native Voices Rising, The California Endowment).
+- [ ] **Team public pages + tabbed browsing.** Public team section where visitors cycle through members (tabs/carousel), each member with its own shareable URL (e.g. `/about/team/{slug}`), SSR-enabled so crawlers and social scrapers get full HTML.
+- [ ] **Auto-generated social (OG) image per team member.** On save, composite the member's photo + name + title into a share image so link previews look polished. Needs a server-side image pipeline (Intervention/Imagick or HTML-to-image). Same pattern reusable for programs/news later.
+- [ ] **Enable SSR runtime for public routes** (prerequisite for the team social/SEO above). The SSR bundle already builds via `build:ssr`; this wires up the Node SSR process (`inertia:start-ssr` under Supervisor in prod, local dev toggle).
+- [ ] **Visual (in-place) page editor — second editing mode.** Render the real page and let editors click text to edit inline (Tiptap), replace images in place, drag blocks, and insert blocks between them — coexisting with the current form + preview flow (editors choose either). Feasible because block components are already shared between admin preview and public render; largest item of this set.
 
 ## Deferred by design
 - [ ] Final visual/brand design of the public site (colors, typography, imagery, motion).
 - [ ] Real media asset migration from legacy host; production S3 upload flow.
-- [ ] RSS + sitemap packages; SSR supervisor process; trashed-content recovery UI.
+- [ ] RSS + sitemap packages; trashed-content recovery UI.
