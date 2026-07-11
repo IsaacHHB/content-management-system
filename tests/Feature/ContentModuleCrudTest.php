@@ -20,40 +20,43 @@ beforeEach(function () {
 });
 
 test('programs support create update reorder and soft delete', function () {
-    $first = $this->actingAs($this->admin)->postJson(route('admin.programs.store'), [
+    $this->actingAs($this->admin)->postJson(route('admin.programs.store'), [
         'title' => 'Fatherhood Program', 'excerpt' => 'Program description', 'blocks' => [],
         'status' => 'draft', 'sort_order' => 0,
-    ])->assertCreated()->json();
-    $second = $this->postJson(route('admin.programs.store'), [
+    ])->assertRedirect();
+    $first = Program::latest('id')->first();
+    $this->postJson(route('admin.programs.store'), [
         'title' => 'Youth Program', 'excerpt' => 'Youth description', 'blocks' => [],
         'status' => 'published', 'sort_order' => 1,
-    ])->assertCreated()->json();
+    ])->assertRedirect();
+    $second = Program::latest('id')->first();
 
-    $this->putJson(route('admin.programs.update', $first['id']), [
-        'title' => 'Updated Fatherhood Program', 'slug' => $first['slug'],
+    $this->putJson(route('admin.programs.update', $first->id), [
+        'title' => 'Updated Fatherhood Program', 'slug' => $first->slug,
         'excerpt' => 'Updated description', 'blocks' => [], 'status' => 'draft',
-    ])->assertOk()->assertJsonPath('title', 'Updated Fatherhood Program');
+    ])->assertRedirect();
+    expect($first->fresh()->title)->toBe('Updated Fatherhood Program');
 
-    $this->patchJson(route('admin.programs.reorder'), ['ids' => [$second['id'], $first['id']]])->assertOk();
-    expect(Program::findOrFail($second['id'])->sort_order)->toBe(0)
-        ->and(Program::findOrFail($first['id'])->sort_order)->toBe(1);
+    $this->patchJson(route('admin.programs.reorder'), ['ids' => [$second->id, $first->id]])->assertRedirect();
+    expect(Program::findOrFail($second->id)->sort_order)->toBe(0)
+        ->and(Program::findOrFail($first->id)->sort_order)->toBe(1);
 
-    $this->deleteJson(route('admin.programs.destroy', $first['id']))->assertNoContent();
-    expect(Program::withTrashed()->findOrFail($first['id'])->trashed())->toBeTrue();
+    $this->deleteJson(route('admin.programs.destroy', $first->id))->assertRedirect();
+    expect(Program::withTrashed()->findOrFail($first->id)->trashed())->toBeTrue();
 });
 
 test('posts synchronize categories and sanitize their blocks', function () {
     $category = Category::create(['name' => 'Community']);
-    $response = $this->actingAs($this->admin)->postJson(route('admin.posts.store'), [
+    $this->actingAs($this->admin)->postJson(route('admin.posts.store'), [
         'title' => 'Community News', 'excerpt' => 'News excerpt', 'status' => 'published',
         'category_ids' => [$category->id],
         'blocks' => [[
             'id' => 'copy', 'type' => 'rich_text',
             'data' => ['content' => ['type' => 'doc', 'content' => [['type' => 'text', 'text' => '<b>News</b>']]]],
         ]],
-    ])->assertCreated();
+    ])->assertRedirect();
 
-    $post = Post::findOrFail($response->json('id'));
+    $post = Post::latest('id')->first();
     expect($post->categories()->pluck('categories.id')->all())->toBe([$category->id])
         ->and($post->blocks[0]['data']['content']['content'][0]['text'])->toBe('News');
 });
@@ -64,29 +67,31 @@ test('galleries synchronize ordered assets with required accessible alt text', f
         'created_by' => $this->admin->id, 'updated_by' => $this->admin->id,
     ]);
 
-    $response = $this->actingAs($this->admin)->postJson(route('admin.galleries.store'), [
+    $this->actingAs($this->admin)->postJson(route('admin.galleries.store'), [
         'title' => 'Community Gallery', 'description' => 'Photos', 'status' => 'published',
         'media_assets' => [['id' => $asset->id, 'alt_text' => 'Families at a community gathering', 'sort_order' => 0]],
-    ])->assertCreated();
+    ])->assertRedirect();
 
-    $gallery = Gallery::findOrFail($response->json('id'));
+    $gallery = Gallery::latest('id')->first();
     expect($gallery->mediaAssets()->firstOrFail()->pivot->alt_text)->toBe('Families at a community gathering')
         ->and($asset->isInUse())->toBeTrue();
 });
 
 test('team members support visibility controls and reordering', function () {
-    $first = $this->actingAs($this->admin)->postJson(route('admin.team.store'), [
+    $this->actingAs($this->admin)->postJson(route('admin.team.store'), [
         'name' => 'First Member', 'title' => 'Director', 'bio' => 'Biography',
         'email' => 'first@nativedadsnetwork.org', 'show_email' => false,
         'show_phone' => false, 'is_active' => true, 'sort_order' => 0,
-    ])->assertCreated()->json();
-    $second = $this->postJson(route('admin.team.store'), [
+    ])->assertRedirect();
+    $first = TeamMember::latest('id')->first();
+    $this->postJson(route('admin.team.store'), [
         'name' => 'Second Member', 'title' => 'Coordinator', 'bio' => 'Biography',
         'show_email' => false, 'show_phone' => false, 'is_active' => true, 'sort_order' => 1,
-    ])->assertCreated()->json();
+    ])->assertRedirect();
+    $second = TeamMember::latest('id')->first();
 
-    $this->patchJson(route('admin.team.reorder'), ['ids' => [$second['id'], $first['id']]])->assertOk();
-    expect(TeamMember::findOrFail($second['id'])->sort_order)->toBe(0);
+    $this->patchJson(route('admin.team.reorder'), ['ids' => [$second->id, $first->id]])->assertRedirect();
+    expect(TeamMember::findOrFail($second->id)->sort_order)->toBe(0);
 });
 
 test('menus accept one nested level with internal model references', function () {
@@ -102,7 +107,7 @@ test('menus accept one nested level with internal model references', function ()
                 'label' => 'Contact', 'custom_url' => '/contact', 'opens_new_tab' => false,
             ]],
         ]],
-    ])->assertOk();
+    ])->assertRedirect();
 
     expect($menu->items()->count())->toBe(1)
         ->and($menu->items()->firstOrFail()->children()->count())->toBe(1);

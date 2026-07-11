@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\PublishStatus;
+use App\Models\Category;
 use App\Models\Post;
+use App\Models\User;
 use App\Services\BlockRenderer;
 use App\Services\MediaReferenceSynchronizer;
 use Illuminate\Database\Eloquent\Model;
@@ -20,9 +22,27 @@ class PostController extends ContentController
         return Post::class;
     }
 
+    protected function key(): string
+    {
+        return 'posts';
+    }
+
     protected function blockField(): ?string
     {
         return 'blocks';
+    }
+
+    protected function editRelations(): array
+    {
+        return ['categories:id', 'ogMediaAsset'];
+    }
+
+    protected function formProps(?Model $model): array
+    {
+        return [
+            'categories' => Category::query()->orderBy('name')->get(['id', 'name']),
+            'authors' => User::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+        ];
     }
 
     protected function rules(Request $request, ?Model $model = null): array

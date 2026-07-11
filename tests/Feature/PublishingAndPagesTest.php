@@ -40,7 +40,7 @@ test('renaming a page creates redirects for it and its descendants', function ()
     $this->actingAs($editor)->putJson(route('admin.pages.update', $page), [
         'parent_id' => null, 'title' => 'Who We Are', 'slug' => 'who-we-are', 'blocks' => [],
         'status' => 'draft', 'published_at' => null, 'locale' => 'en',
-    ])->assertOk();
+    ])->assertRedirect();
 
     expect(Redirect::where('from_path', '/about')->value('to_path'))->toBe('/who-we-are')
         ->and(Redirect::where('from_path', '/about/history')->value('to_path'))->toBe('/who-we-are/history');

@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\MediaAsset;
 use App\Models\Setting;
 use App\Services\MediaReferenceSynchronizer;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class SettingController extends Controller
 {
@@ -32,14 +35,24 @@ class SettingController extends Controller
         'footer_text' => ['nullable', 'string', 'max:5000'],
     ];
 
-    public function edit(Request $request): JsonResponse
+    public function edit(Request $request): Response
     {
         abort_unless($request->user()->can('settings.manage'), 403);
 
-        return response()->json(Setting::allCached());
+        $settings = Setting::query()->orderBy('group')->get(['key', 'value', 'group']);
+        $mediaKeys = (array) config('admin.settings_media_keys', []);
+        $mediaIds = $settings->whereIn('key', $mediaKeys)->pluck('value', 'key')
+            ->map(fn ($v) => is_array($v) ? ($v['media_asset_id'] ?? null) : $v)
+            ->filter()->values()->all();
+
+        return Inertia::render('admin/settings/index', [
+            'settings' => $settings,
+            'settingsMediaKeys' => array_values($mediaKeys),
+            'mediaAssets' => MediaAsset::whereIn('id', $mediaIds)->with('media')->get(),
+        ]);
     }
 
-    public function update(Request $request, MediaReferenceSynchronizer $references): JsonResponse
+    public function update(Request $request, MediaReferenceSynchronizer $references): RedirectResponse
     {
         abort_unless($request->user()->can('settings.manage'), 403);
         $data = $request->validate(['settings' => ['required', 'array']]);
@@ -61,7 +74,7 @@ class SettingController extends Controller
             }
         });
 
-        return response()->json(Setting::allCached());
+        return back()->with('success', 'Settings saved.');
     }
 
     /**

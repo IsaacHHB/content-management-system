@@ -41,13 +41,13 @@ Route::middleware(['auth', 'ndn.domain', 'verified', 'superadmin.2fa'])
         Route::delete('galleries/{gallery}/force', [GalleryController::class, 'forceDelete'])->name('galleries.force-delete');
         Route::post('team/{teamMember}/restore', [TeamMemberController::class, 'restore'])->name('team.restore');
         Route::delete('team/{teamMember}/force', [TeamMemberController::class, 'forceDelete'])->name('team.force-delete');
-        Route::apiResource('pages', PageController::class);
-        Route::apiResource('programs', ProgramController::class);
-        Route::apiResource('events', EventController::class);
-        Route::apiResource('posts', PostController::class);
-        Route::apiResource('categories', CategoryController::class)->except('show');
-        Route::apiResource('galleries', GalleryController::class);
-        Route::apiResource('team', TeamMemberController::class)->parameters(['team' => 'teamMember']);
+        Route::resource('pages', PageController::class)->except('show');
+        Route::resource('programs', ProgramController::class)->except('show');
+        Route::resource('events', EventController::class)->except('show');
+        Route::resource('posts', PostController::class)->except('show');
+        Route::apiResource('categories', CategoryController::class)->only(['store', 'update', 'destroy']);
+        Route::resource('galleries', GalleryController::class)->except('show');
+        Route::resource('team', TeamMemberController::class)->except('show')->parameters(['team' => 'teamMember']);
         Route::resource('media', MediaController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('menus', MenuController::class)->only(['index', 'update']);
         Route::get('settings', [SettingController::class, 'edit'])->name('settings.edit');
@@ -56,7 +56,7 @@ Route::middleware(['auth', 'ndn.domain', 'verified', 'superadmin.2fa'])
         Route::get('activity', ActivityController::class)->name('activity.index');
 
         Route::middleware('role:super_admin|admin')->group(function () {
-            Route::resource('users', UserController::class)->only(['index', 'show', 'update']);
+            Route::resource('users', UserController::class)->only(['index', 'update']);
             Route::resource('invites', InviteController::class)->only(['index', 'store', 'destroy']);
             Route::post('invites/{invite}/resend', [InviteController::class, 'resend'])->name('invites.resend');
         });

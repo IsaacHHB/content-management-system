@@ -25,15 +25,16 @@ test('an editor can delete their own team member', function () {
     $editor = User::factory()->create();
     $editor->assignRole('editor');
 
-    $created = $this->actingAs($editor)->postJson(route('admin.team.store'), [
+    $this->actingAs($editor)->postJson(route('admin.team.store'), [
         'name' => 'Jane Doe', 'title' => 'Director', 'bio' => 'Bio',
         'show_email' => false, 'show_phone' => false, 'is_active' => true,
-    ])->assertCreated()->json();
+    ])->assertRedirect();
+    $created = TeamMember::latest('id')->first();
 
-    $this->actingAs($editor)->deleteJson(route('admin.team.destroy', $created['id']))
-        ->assertNoContent();
+    $this->actingAs($editor)->deleteJson(route('admin.team.destroy', $created->id))
+        ->assertRedirect();
 
-    expect(TeamMember::find($created['id']))->toBeNull();
+    expect(TeamMember::find($created->id))->toBeNull();
 });
 
 test('an editor cannot delete another users team member', function () {
@@ -59,14 +60,15 @@ test('gallery photos are indexed in the media usage table', function () {
     $admin->assignRole('admin');
     $asset = makeMediaAsset($admin);
 
-    $gallery = $this->actingAs($admin)->postJson(route('admin.galleries.store'), [
+    $this->actingAs($admin)->postJson(route('admin.galleries.store'), [
         'title' => 'Community Day', 'status' => 'draft',
         'media_assets' => [
             ['id' => $asset->id, 'alt_text' => 'A family', 'sort_order' => 0],
         ],
-    ])->assertCreated()->json();
+    ])->assertRedirect();
+    $gallery = Gallery::latest('id')->first();
 
-    expect(MediaReference::where('media_asset_id', $asset->id)->where('referencer_type', Gallery::class)->where('referencer_id', $gallery['id'])->exists())->toBeTrue()
+    expect(MediaReference::where('media_asset_id', $asset->id)->where('referencer_type', Gallery::class)->where('referencer_id', $gallery->id)->exists())->toBeTrue()
         ->and($asset->fresh()->references()->count())->toBe(1);
 });
 
@@ -85,5 +87,5 @@ test('settings reject an invalid url and a missing media asset', function () {
 
     $this->actingAs($admin)->putJson(route('admin.settings.update'), [
         'settings' => ['facebook_url' => 'https://facebook.com/ndn', 'contact_email' => ''],
-    ])->assertOk();
+    ])->assertRedirect();
 });

@@ -140,6 +140,10 @@ class BlockRenderer
 
         $out = [];
         foreach (array_slice($value, 0, 100, true) as $key => $item) {
+            if ($key === 'media') {
+                // Preview-only hydrated object; never persisted.
+                continue;
+            }
             if ($key === 'content' && is_array($item)) {
                 $out[$key] = $this->sanitizeTiptap($item);
             } elseif (str_ends_with((string) $key, '_id') && $item !== null) {

@@ -15,6 +15,26 @@ class TeamMemberController extends ContentController
         return TeamMember::class;
     }
 
+    protected function key(): string
+    {
+        return 'team';
+    }
+
+    protected function searchColumn(): string
+    {
+        return 'name';
+    }
+
+    protected function defaultSort(): array
+    {
+        return ['sort_order', 'asc'];
+    }
+
+    protected function editRelations(): array
+    {
+        return ['photo'];
+    }
+
     protected function afterSave(Model $model, array $data, MediaReferenceSynchronizer $references): void
     {
         $references->sync($model, [], ['photo_media_asset_id' => $model->getAttribute('photo_media_asset_id')]);

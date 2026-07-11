@@ -32,7 +32,7 @@ test('admins can issue and invitees can consume a single use hashed invite', fun
     $this->actingAs($admin)->postJson(route('admin.invites.store'), [
         'email' => 'new.editor@nativedadsnetwork.org',
         'role' => 'editor',
-    ])->assertCreated();
+    ])->assertRedirect();
 
     $invite = Invite::firstOrFail();
     expect($invite->token)->toHaveLength(64)

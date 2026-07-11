@@ -23,6 +23,9 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
  * @property string $path
  * @property PublishStatus $status
  * @property Carbon|null $published_at
+ * @property string|null $seo_title
+ * @property string|null $seo_description
+ * @property array<int, array<string, mixed>> $blocks
  */
 class Page extends Model implements SoftDeletableContent
 {

@@ -36,10 +36,10 @@ test('only super administrators can restore and permanently delete content', fun
     $page->delete();
 
     $this->actingAs($admin)->postJson(route('admin.pages.restore', $page->id))->assertForbidden();
-    $this->actingAs($superAdmin)->postJson(route('admin.pages.restore', $page->id))->assertOk();
+    $this->actingAs($superAdmin)->postJson(route('admin.pages.restore', $page->id))->assertRedirect();
 
     $page->refresh()->delete();
-    $this->actingAs($superAdmin)->deleteJson(route('admin.pages.force-delete', $page->id))->assertNoContent();
+    $this->actingAs($superAdmin)->deleteJson(route('admin.pages.force-delete', $page->id))->assertRedirect();
     expect(Page::withTrashed()->find($page->id))->toBeNull();
 });
 
@@ -61,7 +61,7 @@ test('activity entries include a privacy preserving request ip hash', function (
     $this->actingAs($editor)->postJson(route('admin.pages.store'), [
         'parent_id' => null, 'title' => 'Logged Page', 'slug' => 'logged-page',
         'blocks' => [], 'status' => 'draft', 'locale' => 'en',
-    ])->assertCreated();
+    ])->assertRedirect();
 
     $activity = Activity::latest()->firstOrFail();
     expect($activity->properties->get('ip_hash'))->toBeString()->toHaveLength(64)
@@ -79,7 +79,7 @@ test('media ids stored in settings are added to the usage index', function () {
 
     $this->actingAs($admin)->putJson(route('admin.settings.update'), [
         'settings' => ['logo' => ['media_asset_id' => $asset->id]],
-    ])->assertOk();
+    ])->assertRedirect();
 
     expect(MediaReference::where('media_asset_id', $asset->id)->where('referencer_type', Setting::class)->exists())->toBeTrue()
         ->and($asset->isInUse())->toBeTrue();

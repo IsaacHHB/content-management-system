@@ -6,17 +6,23 @@ use App\Contracts\SoftDeletableContent;
 use App\Enums\PublishStatus;
 use App\Http\Controllers\Controller;
 use App\Models\MediaReference;
+use App\Services\BlockHydrator;
 use App\Services\BlockRenderer;
 use App\Services\MediaReferenceSynchronizer;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
 
 abstract class ContentController extends Controller
 {
     /** @return class-string<Model&SoftDeletableContent> */
     abstract protected function model(): string;
+
+    /** Route/view key, e.g. "pages" → routes admin.pages.*, views admin/pages/*. */
+    abstract protected function key(): string;
 
     /** @return array<string, mixed> */
     abstract protected function rules(Request $request, ?Model $model = null): array;
@@ -26,26 +32,84 @@ abstract class ContentController extends Controller
         return null;
     }
 
-    public function index(Request $request): JsonResponse
+    protected function searchColumn(): string
+    {
+        return 'title';
+    }
+
+    /**
+     * Extra relations to eager-load on the edit screen.
+     *
+     * @return array<int, string>
+     */
+    protected function editRelations(): array
+    {
+        return [];
+    }
+
+    /** @return array{0: string, 1: string} */
+    protected function defaultSort(): array
+    {
+        return ['updated_at', 'desc'];
+    }
+
+    /**
+     * Extra props for the index screen.
+     *
+     * @return array<string, mixed>
+     */
+    protected function indexProps(Request $request): array
+    {
+        return [];
+    }
+
+    /**
+     * Extra props for the create/edit form (e.g. select options).
+     *
+     * @return array<string, mixed>
+     */
+    protected function formProps(?Model $model): array
+    {
+        return [];
+    }
+
+    public function index(Request $request): Response
     {
         $model = $this->model();
         $this->authorize('viewAny', $model);
+        [$sortColumn, $sortDir] = $this->defaultSort();
+
         $items = $model::query()
-            ->when($request->string('search')->isNotEmpty(), fn ($query) => $query->where('title', 'like', '%'.$request->string('search').'%'))
+            ->with('updatedByUser:id,name')
+            ->when($request->string('search')->isNotEmpty(), fn ($query) => $query->where($this->searchColumn(), 'like', '%'.$request->string('search').'%'))
             ->when($request->string('status')->isNotEmpty(), fn ($query) => $query->where('status', $request->string('status')))
-            ->latest('updated_at')
+            ->orderBy($sortColumn, $sortDir === 'asc' ? 'asc' : 'desc')
             ->paginate(min(100, max(1, $request->integer('per_page', 20))))
             ->withQueryString();
 
-        return response()->json($items);
+        return Inertia::render("admin/{$this->key()}/index", [
+            'items' => $items,
+            'filters' => ['search' => $request->string('search')->toString(), 'status' => $request->string('status')->toString()],
+            ...$this->indexProps($request),
+        ]);
     }
 
-    public function store(Request $request, BlockRenderer $blocks, MediaReferenceSynchronizer $references): JsonResponse
+    public function create(Request $request): Response
+    {
+        $this->authorize('create', $this->model());
+
+        return Inertia::render("admin/{$this->key()}/create", [
+            ...$this->formProps(null),
+        ]);
+    }
+
+    public function store(Request $request, BlockRenderer $blocks, MediaReferenceSynchronizer $references): RedirectResponse
     {
         $modelClass = $this->model();
         $this->authorize('create', $modelClass);
         $data = $request->validate($this->rules($request));
         $data = $this->prepare($request, $data, null, $blocks);
+
         $item = DB::transaction(function () use ($request, $data, $modelClass, $references): Model {
             $item = $modelClass::create([
                 ...$data,
@@ -57,50 +121,76 @@ abstract class ContentController extends Controller
             return $item;
         });
 
-        return response()->json($item->refresh(), 201);
+        return redirect()->route("admin.{$this->key()}.edit", $item)->with('success', 'Created.');
     }
 
-    public function show(Request $request): JsonResponse
+    public function edit(Request $request, BlockHydrator $hydrator): Response
     {
         $item = $this->resolveModel($request);
         $this->authorize('view', $item);
+        $item->load('updatedByUser:id,name', ...$this->editRelations());
 
-        return response()->json($item);
+        // Serialize with the block field hydrated so the editor previews media.
+        $payload = $item->toArray();
+        $blockField = $this->blockField();
+        if ($blockField !== null) {
+            $payload[$blockField] = $hydrator->hydrate($item->getAttribute($blockField) ?? []);
+        }
+
+        return Inertia::render("admin/{$this->key()}/edit", [
+            'item' => $payload,
+            ...$this->formProps($item),
+        ]);
     }
 
-    public function update(Request $request, BlockRenderer $blocks, MediaReferenceSynchronizer $references): JsonResponse
+    public function update(Request $request, BlockRenderer $blocks, MediaReferenceSynchronizer $references): RedirectResponse
     {
         $item = $this->resolveModel($request);
         $this->authorize('update', $item);
         $data = $request->validate($this->rules($request, $item));
         $data = $this->prepare($request, $data, $item, $blocks);
         $this->beforeSave($item, $data);
+
         DB::transaction(function () use ($request, $data, $item, $references): void {
             $item->update([...$data, 'updated_by' => $request->user()->id]);
             $this->afterSave($item, $data, $references);
         });
 
-        return response()->json($item->refresh());
+        return back()->with('success', 'Saved.');
     }
 
-    public function destroy(Request $request): JsonResponse
+    public function destroy(Request $request): RedirectResponse
     {
         $item = $this->resolveModel($request);
         $this->authorize('delete', $item);
         abort_if((bool) ($item->is_locked ?? false), 422, 'This item is locked and cannot be deleted.');
         $item->delete();
 
-        return response()->json(status: 204);
+        return redirect()->route("admin.{$this->key()}.index")->with('success', 'Moved to trash.');
     }
 
-    public function restore(Request $request): JsonResponse
+    public function restore(Request $request): RedirectResponse
     {
         $item = $this->resolveTrashedModel($request);
         $this->authorize('restore', $item);
         $this->guardSlugAvailableForRestore($item);
         $item->restore();
 
-        return response()->json($item->refresh());
+        return back()->with('success', 'Restored.');
+    }
+
+    public function forceDelete(Request $request): RedirectResponse
+    {
+        $item = $this->resolveTrashedModel($request);
+        $this->authorize('forceDelete', $item);
+        abort_if((bool) ($item->is_locked ?? false), 422, 'This item is locked and cannot be permanently deleted.');
+
+        DB::transaction(function () use ($item): void {
+            MediaReference::whereMorphedTo('referencer', $item)->delete();
+            $item->forceDelete();
+        });
+
+        return back()->with('success', 'Permanently deleted.');
     }
 
     /**
@@ -123,20 +213,6 @@ abstract class ContentController extends Controller
         }
 
         abort_if($conflict->exists(), 422, 'A live item already uses this slug; rename or remove it before restoring.');
-    }
-
-    public function forceDelete(Request $request): JsonResponse
-    {
-        $item = $this->resolveTrashedModel($request);
-        $this->authorize('forceDelete', $item);
-        abort_if((bool) ($item->is_locked ?? false), 422, 'This item is locked and cannot be permanently deleted.');
-
-        DB::transaction(function () use ($item): void {
-            MediaReference::whereMorphedTo('referencer', $item)->delete();
-            $item->forceDelete();
-        });
-
-        return response()->json(status: 204);
     }
 
     /** @param array<string, mixed> $data
@@ -170,7 +246,7 @@ abstract class ContentController extends Controller
     /** @param array<string, mixed> $data */
     protected function beforeSave(Model $model, array $data): void {}
 
-    public function reorder(Request $request): JsonResponse
+    public function reorder(Request $request): RedirectResponse
     {
         $ids = $request->validate(['ids' => ['required', 'array'], 'ids.*' => ['integer', 'distinct']])['ids'];
         $model = $this->model();
@@ -184,7 +260,7 @@ abstract class ContentController extends Controller
             }
         });
 
-        return response()->json(['ids' => $ids]);
+        return back()->with('success', 'Reordered.');
     }
 
     private function resolveModel(Request $request): Model

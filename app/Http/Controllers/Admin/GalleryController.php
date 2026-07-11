@@ -20,6 +20,21 @@ class GalleryController extends ContentController
         return Gallery::class;
     }
 
+    protected function key(): string
+    {
+        return 'galleries';
+    }
+
+    protected function defaultSort(): array
+    {
+        return ['sort_order', 'asc'];
+    }
+
+    protected function editRelations(): array
+    {
+        return ['mediaAssets'];
+    }
+
     protected function rules(Request $request, ?Model $model = null): array
     {
         return [

@@ -24,9 +24,28 @@ class MediaAsset extends Model implements HasMedia
         'status', 'created_by', 'updated_by',
     ];
 
+    /** @var list<string> */
+    protected $appends = ['url', 'thumb_url'];
+
     protected function casts(): array
     {
         return ['focal_point' => 'array'];
+    }
+
+    public function getUrlAttribute(): ?string
+    {
+        return $this->getFirstMedia('original')?->getUrl();
+    }
+
+    public function getThumbUrlAttribute(): ?string
+    {
+        $media = $this->getFirstMedia('original');
+
+        if ($media === null) {
+            return null;
+        }
+
+        return $this->type === 'image' ? $media->getUrl('thumb') : $media->getUrl();
     }
 
     /** @return HasMany<MediaReference, $this> */

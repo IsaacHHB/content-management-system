@@ -9,7 +9,7 @@ test('contact submissions are stored with a one-way ip hash', function () {
         'subject' => 'Program question',
         'message' => 'Please send more information.',
         'form_started_at' => now()->subSeconds(5)->timestamp,
-    ])->assertCreated();
+    ])->assertRedirect();
 
     $submission = ContactSubmission::firstOrFail();
     expect($submission->ip_hash)->toHaveLength(64)

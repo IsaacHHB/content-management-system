@@ -19,6 +19,9 @@ use Spatie\Sluggable\SlugOptions;
 /**
  * @property PublishStatus $status
  * @property Carbon|null $published_at
+ * @property string|null $seo_title
+ * @property string|null $seo_description
+ * @property array<int, array<string, mixed>> $blocks
  */
 class Program extends Model implements SoftDeletableContent
 {

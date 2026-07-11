@@ -15,9 +15,19 @@ class EventController extends ContentController
         return Event::class;
     }
 
+    protected function key(): string
+    {
+        return 'events';
+    }
+
     protected function blockField(): ?string
     {
         return 'description';
+    }
+
+    protected function editRelations(): array
+    {
+        return ['ogMediaAsset'];
     }
 
     protected function rules(Request $request, ?Model $model = null): array

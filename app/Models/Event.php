@@ -20,6 +20,14 @@ use Spatie\Sluggable\SlugOptions;
 /**
  * @property PublishStatus $status
  * @property Carbon|null $published_at
+ * @property string|null $seo_title
+ * @property string|null $seo_description
+ * @property Carbon|null $starts_at
+ * @property Carbon|null $ends_at
+ * @property Carbon|null $start_date
+ * @property Carbon|null $end_date
+ * @property bool $all_day
+ * @property array<int, array<string, mixed>> $description
  */
 class Event extends Model implements SoftDeletableContent
 {

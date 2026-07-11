@@ -20,6 +20,9 @@ use Spatie\Sluggable\SlugOptions;
 /**
  * @property PublishStatus $status
  * @property Carbon|null $published_at
+ * @property string|null $seo_title
+ * @property string|null $seo_description
+ * @property array<int, array<string, mixed>> $blocks
  */
 class Post extends Model implements SoftDeletableContent
 {
@@ -50,6 +53,12 @@ class Post extends Model implements SoftDeletableContent
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
+    }
+
+    /** @return BelongsTo<MediaAsset, $this> */
+    public function ogMediaAsset(): BelongsTo
+    {
+        return $this->belongsTo(MediaAsset::class, 'og_media_asset_id');
     }
 
     /** @return BelongsToMany<Category, $this> */

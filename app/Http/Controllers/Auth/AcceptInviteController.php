@@ -6,24 +6,24 @@ use App\Http\Controllers\Controller;
 use App\Models\Invite;
 use App\Models\User;
 use App\Rules\AllowedEmailDomain;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rules\Password;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class AcceptInviteController extends Controller
 {
-    public function show(string $token): JsonResponse
+    public function show(string $token): Response
     {
         $invite = $this->findValidInvite($token);
 
-        return response()->json([
+        return Inertia::render('auth/accept-invite', [
             'email' => $invite->email,
-            'expires_at' => $invite->expires_at,
-            'accept_url' => URL::temporarySignedRoute(
+            'acceptUrl' => URL::temporarySignedRoute(
                 'invite.accept',
                 $invite->expires_at,
                 ['token' => $token],

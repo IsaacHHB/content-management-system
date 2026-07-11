@@ -22,9 +22,30 @@ class PageController extends ContentController
         return Page::class;
     }
 
+    protected function key(): string
+    {
+        return 'pages';
+    }
+
     protected function blockField(): ?string
     {
         return 'blocks';
+    }
+
+    protected function editRelations(): array
+    {
+        return ['ogMediaAsset'];
+    }
+
+    protected function formProps(?Model $model): array
+    {
+        return [
+            'parentOptions' => Page::query()
+                ->whereNull('parent_id')
+                ->when($model instanceof Page, fn ($query) => $query->whereKeyNot($model->getKey()))
+                ->orderBy('title')
+                ->get(['id', 'title']),
+        ];
     }
 
     protected function rules(Request $request, ?Model $model = null): array

@@ -48,7 +48,7 @@ test('a super administrator can still grant the super administrator role', funct
 
     $this->actingAs($superAdmin)->putJson(route('admin.users.update', $target), [
         'role' => 'super_admin',
-    ])->assertOk();
+    ])->assertRedirect();
 
     expect($target->refresh()->hasRole('super_admin'))->toBeTrue();
 });
@@ -121,7 +121,7 @@ test('media referenced by a scalar setting value cannot be deleted', function ()
     // Store the media id as a bare scalar (the format the audit found unprotected).
     $this->actingAs($admin)->putJson(route('admin.settings.update'), [
         'settings' => ['logo' => $asset->id],
-    ])->assertOk();
+    ])->assertRedirect();
 
     expect($asset->isInUse())->toBeTrue();
 

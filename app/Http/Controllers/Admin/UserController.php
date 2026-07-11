@@ -5,28 +5,28 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class UserController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): Response
     {
         abort_unless($request->user()->can('users.manage'), 403);
 
-        return response()->json(User::with('roles')->latest()->paginate(30));
+        return Inertia::render('admin/users/index', [
+            'items' => User::with('roles:id,name')->latest()->paginate(30),
+            'assignableRoles' => $request->user()->hasRole(Role::SuperAdmin->value)
+                ? ['super_admin', 'admin', 'editor']
+                : ['admin', 'editor'],
+        ]);
     }
 
-    public function show(Request $request, User $user): JsonResponse
-    {
-        abort_unless($request->user()->can('users.manage'), 403);
-
-        return response()->json($user->load('roles'));
-    }
-
-    public function update(Request $request, User $user): JsonResponse
+    public function update(Request $request, User $user): RedirectResponse
     {
         abort_unless($request->user()->can('users.manage'), 403);
         $assignableRoles = $request->user()->hasRole(Role::SuperAdmin->value)
@@ -49,6 +49,6 @@ class UserController extends Controller
             }
         });
 
-        return response()->json($user->refresh()->load('roles'));
+        return back()->with('success', 'User updated.');
     }
 }

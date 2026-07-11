@@ -15,9 +15,24 @@ class ProgramController extends ContentController
         return Program::class;
     }
 
+    protected function key(): string
+    {
+        return 'programs';
+    }
+
+    protected function defaultSort(): array
+    {
+        return ['sort_order', 'asc'];
+    }
+
     protected function blockField(): ?string
     {
         return 'blocks';
+    }
+
+    protected function editRelations(): array
+    {
+        return ['ogMediaAsset'];
     }
 
     protected function rules(Request $request, ?Model $model = null): array

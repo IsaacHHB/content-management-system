@@ -7,20 +7,24 @@ use App\Http\Controllers\Controller;
 use App\Mail\InviteMail;
 use App\Models\Invite;
 use App\Rules\AllowedEmailDomain;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class InviteController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(): Response
     {
-        return response()->json(Invite::with('inviter:id,name')->latest()->paginate(20));
+        return Inertia::render('admin/invites/index', [
+            'items' => Invite::with('inviter:id,name')->latest()->paginate(20),
+        ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
             'email' => [
@@ -42,18 +46,18 @@ class InviteController extends Controller
 
         Mail::to($invite->email)->queue(new InviteMail($invite, $plainToken));
 
-        return response()->json($invite, 201);
+        return back()->with('success', "Invite sent to {$invite->email}.");
     }
 
-    public function destroy(Invite $invite): JsonResponse
+    public function destroy(Invite $invite): RedirectResponse
     {
         abort_if($invite->accepted_at !== null, 422, 'Accepted invites are retained for audit history.');
         $invite->delete();
 
-        return response()->json(status: 204);
+        return back()->with('success', 'Invite revoked.');
     }
 
-    public function resend(Invite $invite): JsonResponse
+    public function resend(Invite $invite): RedirectResponse
     {
         abort_if($invite->accepted_at !== null, 422, 'Accepted invites cannot be resent.');
         $plainToken = Str::random(64);
@@ -63,6 +67,6 @@ class InviteController extends Controller
         ]);
         Mail::to($invite->email)->queue(new InviteMail($invite, $plainToken));
 
-        return response()->json($invite);
+        return back()->with('success', 'Invite resent.');
     }
 }

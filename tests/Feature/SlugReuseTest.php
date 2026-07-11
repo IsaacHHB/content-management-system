@@ -89,7 +89,7 @@ test('restoring succeeds when the slug is still free', function () {
     $original->delete();
 
     $this->actingAs($superAdmin)->postJson(route('admin.programs.restore', $original->id))
-        ->assertOk();
+        ->assertRedirect();
 
     $restored = $original->fresh();
     expect($restored->trashed())->toBeFalse()
