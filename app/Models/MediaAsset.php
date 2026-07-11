@@ -1,0 +1,70 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\Concerns\HasEditorialAudit;
+use App\Models\Concerns\RecordsActivity;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+
+class MediaAsset extends Model implements HasMedia
+{
+    use HasEditorialAudit, InteractsWithMedia, LogsActivity, RecordsActivity, SoftDeletes {
+        RecordsActivity::getActivitylogOptions insteadof LogsActivity;
+    }
+
+    protected $fillable = [
+        'uuid', 'type', 'original_name', 'alt_text', 'caption', 'credit', 'focal_point',
+        'status', 'created_by', 'updated_by',
+    ];
+
+    protected function casts(): array
+    {
+        return ['focal_point' => 'array'];
+    }
+
+    /** @return HasMany<MediaReference, $this> */
+    public function references(): HasMany
+    {
+        return $this->hasMany(MediaReference::class);
+    }
+
+    /** @return BelongsToMany<Gallery, $this> */
+    public function galleries(): BelongsToMany
+    {
+        return $this->belongsToMany(Gallery::class);
+    }
+
+    public function isInUse(): bool
+    {
+        return $this->references()->exists()
+            || $this->galleries()->exists()
+            || Page::where('og_media_asset_id', $this->id)->exists()
+            || Program::where('og_media_asset_id', $this->id)->exists()
+            || Event::where('og_media_asset_id', $this->id)->exists()
+            || Post::where('og_media_asset_id', $this->id)->exists()
+            || TeamMember::where('photo_media_asset_id', $this->id)->exists();
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('original')->singleFile();
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        if ($this->type !== 'image') {
+            return;
+        }
+
+        $this->addMediaConversion('thumb')->nonQueued()->width(400);
+        $this->addMediaConversion('medium')->nonQueued()->width(800);
+        $this->addMediaConversion('large')->nonQueued()->width(1600);
+    }
+}
