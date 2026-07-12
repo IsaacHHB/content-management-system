@@ -59,6 +59,17 @@ abstract class ContentController extends Controller
         return [];
     }
 
+    /**
+     * Relations to `withCount` on the index screen — for counts the list shows
+     * without paying to hydrate (and lazy-load) every related row.
+     *
+     * @return list<string>
+     */
+    protected function indexCounts(): array
+    {
+        return [];
+    }
+
     /** @return array{0: string, 1: string} */
     protected function defaultSort(): array
     {
@@ -93,6 +104,7 @@ abstract class ContentController extends Controller
 
         $items = $model::query()
             ->with('updatedByUser:id,name', ...$this->indexRelations())
+            ->withCount($this->indexCounts())
             ->when($request->string('search')->isNotEmpty(), fn ($query) => $query->where($this->searchColumn(), 'like', '%'.$request->string('search').'%'))
             ->when($request->string('status')->isNotEmpty(), fn ($query) => $query->where('status', $request->string('status')))
             ->orderBy($sortColumn, $sortDir === 'asc' ? 'asc' : 'desc')

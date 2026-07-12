@@ -32,6 +32,7 @@ abstract class PublicController extends Controller
             'title' => $title,
             'description' => $description,
             'image' => $image,
+            'canonical' => request()->url(),
         ];
     }
 }

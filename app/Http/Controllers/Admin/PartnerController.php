@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Models\Partner;
+use App\Rules\ExistingImageAsset;
 use App\Services\MediaReferenceSynchronizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -51,7 +52,7 @@ class PartnerController extends ContentController
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'alpha_dash', 'max:255', Rule::unique('partners')->ignore($model?->getKey())->whereNull('deleted_at')],
             'website_url' => ['nullable', 'url', 'max:255'],
-            'logo_media_asset_id' => ['nullable', 'exists:media_assets,id'],
+            'logo_media_asset_id' => ['nullable', 'integer', new ExistingImageAsset],
             'sort_order' => ['sometimes', 'integer', 'min:0'],
             'is_active' => ['required', 'boolean'],
         ];

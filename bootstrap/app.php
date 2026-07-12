@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\EnsureNdnEmailDomain;
 use App\Http\Middleware\EnsureSuperAdminHasTwoFactor;
 use App\Http\Middleware\HandleAppearance;
@@ -33,6 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
+            EnsureNdnEmailDomain::class,
+            AddSecurityHeaders::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,

@@ -27,7 +27,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { toDatetimeLocal } from '@/lib/format';
+import { fromDatetimeLocal, toDatetimeLocal } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Gallery, MediaAsset } from '@/types/models';
 
@@ -212,6 +212,11 @@ export default function GalleryForm({ item }: { item?: Gallery }) {
             updatePhotos(arrayMove(photos, oldIndex, newIndex));
         }
     };
+
+    form.transform((data) => ({
+        ...data,
+        published_at: fromDatetimeLocal(data.published_at),
+    }));
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();

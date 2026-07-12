@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\TeamMemberController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AcceptInviteController;
 use App\Http\Controllers\Public\PreviewController;
+use App\Http\Middleware\NoStoreCache;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'ndn.domain', 'verified', 'superadmin.2fa'])
@@ -78,7 +79,7 @@ Route::middleware('guest')->group(function () {
         ->middleware(['signed', 'throttle:5,1'])->name('invite.accept');
 });
 
-Route::middleware(['signed', 'throttle:30,1', \App\Http\Middleware\NoStoreCache::class])->prefix('preview')->name('preview.')->group(function () {
+Route::middleware(['signed', 'throttle:30,1', NoStoreCache::class])->prefix('preview')->name('preview.')->group(function () {
     Route::get('pages/{page}', [PreviewController::class, 'page'])->name('pages');
     Route::get('programs/{program}', [PreviewController::class, 'program'])->name('programs');
     Route::get('events/{event}', [PreviewController::class, 'event'])->name('events');

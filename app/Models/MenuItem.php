@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\CacheInvalidation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,6 +14,13 @@ class MenuItem extends Model
         'menu_id', 'parent_id', 'label', 'linkable_type', 'linkable_id',
         'custom_url', 'opens_new_tab', 'sort_order',
     ];
+
+    protected static function booted(): void
+    {
+        $forget = static fn () => CacheInvalidation::forgetAfterCommit('public_menus');
+        static::saved($forget);
+        static::deleted($forget);
+    }
 
     protected function casts(): array
     {

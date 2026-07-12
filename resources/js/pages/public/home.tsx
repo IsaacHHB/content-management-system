@@ -2,7 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 
 import { SeoHead } from '@/components/public/seo-head';
 import type { Seo } from '@/components/public/seo-head';
-import { formatDate, formatDateTime } from '@/lib/format';
+import { formatDate, formatDateOnly, formatDateTime } from '@/lib/format';
 import type { TeamMember } from '@/types/models';
 
 type HomeProgram = { id: number; title: string; slug: string; excerpt: string };
@@ -14,6 +14,7 @@ type HomeEvent = {
     starts_at: string | null;
     start_date: string | null;
     all_day: boolean;
+    timezone: string;
     location_name: string | null;
     is_virtual: boolean;
 };
@@ -100,8 +101,11 @@ export default function Home({
                                 </Link>
                                 <p className="mt-1 text-sm text-neutral-600">
                                     {event.all_day
-                                        ? formatDate(event.start_date)
-                                        : formatDateTime(event.starts_at)}
+                                        ? formatDateOnly(event.start_date)
+                                        : formatDateTime(
+                                              event.starts_at,
+                                              event.timezone,
+                                          )}
                                     {event.is_virtual
                                         ? ' · Virtual'
                                         : event.location_name

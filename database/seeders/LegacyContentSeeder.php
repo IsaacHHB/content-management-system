@@ -25,6 +25,8 @@ use Illuminate\Support\Str;
  */
 class LegacyContentSeeder extends Seeder
 {
+    private const TIMEZONE = 'America/Los_Angeles';
+
     private int $userId;
 
     public function run(): void
@@ -243,7 +245,10 @@ class LegacyContentSeeder extends Seeder
 
     private function seedEvents(): void
     {
-        $tuesday = Carbon::now()->next(Carbon::TUESDAY);
+        // Wall-clock times are local to the event's own zone; `event()` converts
+        // them to the UTC instant that gets stored.
+        $tuesday = Carbon::now(self::TIMEZONE)->next(Carbon::TUESDAY);
+        $fortnight = Carbon::now(self::TIMEZONE)->addWeeks(2);
 
         $this->event('Red Road To Wellbriety', 'A weekly Wellbriety circle walking the Red Road to recovery and wellbeing. Every Tuesday.',
             $tuesday->copy()->setTime(17, 30), $tuesday->copy()->setTime(19, 30), 'Native Dads Network');
@@ -252,7 +257,7 @@ class LegacyContentSeeder extends Seeder
             $tuesday->copy()->setTime(6, 30), $tuesday->copy()->setTime(7, 30), null, true);
 
         $this->event('Native Dads Network Parenting Circle', 'A parenting circle for fathers and families, meeting regularly to share, learn, and support one another.',
-            Carbon::now()->addWeeks(2)->setTime(17, 30), Carbon::now()->addWeeks(2)->setTime(19, 30), 'Native Dads Network');
+            $fortnight->copy()->setTime(17, 30), $fortnight->copy()->setTime(19, 30), 'Native Dads Network');
     }
 
     private function event(string $title, string $desc, Carbon $start, Carbon $end, ?string $location, bool $virtual = false): void
@@ -260,8 +265,8 @@ class LegacyContentSeeder extends Seeder
         Event::updateOrCreate(['slug' => Str::slug($title)], [
             'title' => $title,
             'description' => [$this->richText($desc)],
-            'starts_at' => $start, 'ends_at' => $end, 'all_day' => false,
-            'timezone' => 'America/Los_Angeles',
+            'starts_at' => $start->copy()->utc(), 'ends_at' => $end->copy()->utc(), 'all_day' => false,
+            'timezone' => self::TIMEZONE,
             'location_name' => $location, 'is_virtual' => $virtual,
             'registration_url' => 'mailto:info@nativedadsnetwork.org',
             'status' => PublishStatus::Published, 'published_at' => now(),

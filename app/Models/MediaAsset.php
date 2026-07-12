@@ -88,8 +88,11 @@ class MediaAsset extends Model implements HasMedia
             return;
         }
 
-        $this->addMediaConversion('thumb')->nonQueued()->width(400);
-        $this->addMediaConversion('medium')->nonQueued()->width(800);
-        $this->addMediaConversion('large')->nonQueued()->width(1600);
+        $this->addMediaConversion('thumb')->width(400);
+        $this->addMediaConversion('medium')->width(800);
+        $this->addMediaConversion('large')->width(1600);
+        $this->addMediaConversion('thumb-webp')->format('webp')->width(400);
+        $this->addMediaConversion('medium-webp')->format('webp')->width(800);
+        $this->addMediaConversion('large-webp')->format('webp')->width(1600);
     }
 }

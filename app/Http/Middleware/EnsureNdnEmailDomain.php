@@ -13,10 +13,18 @@ class EnsureNdnEmailDomain
     {
         $user = $request->user();
 
-        if (! $user || ! $user->is_active || ! $user->hasAllowedDomain()) {
+        if ($user === null) {
+            return $next($request);
+        }
+
+        if (! $user->is_active || ! $user->hasAllowedDomain()) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
+
+            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
 
             return redirect()->route('login')->withErrors([
                 'email' => 'Your account is not authorized to access the CMS.',

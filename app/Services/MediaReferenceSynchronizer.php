@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\MediaAsset;
 use App\Models\MediaReference;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class MediaReferenceSynchronizer
 {
@@ -20,6 +22,11 @@ class MediaReferenceSynchronizer
             $this->collect($block['data'] ?? [], $references, $block['id'] ?? null);
         }
         $this->collect($structured, $references, null);
+
+        $ids = array_values(array_unique(array_column($references, 'media_asset_id')));
+        if ($ids !== [] && MediaAsset::query()->whereKey($ids)->where('type', 'image')->count() !== count($ids)) {
+            throw ValidationException::withMessages(['blocks' => 'One or more referenced media assets are unavailable or are not images.']);
+        }
 
         foreach ($references as $reference) {
             $referencer->morphMany(MediaReference::class, 'referencer')->create($reference);

@@ -69,7 +69,7 @@ export default function GalleriesIndex({
                                     <StatusBadge status={gallery.status} />
                                 </TableCell>
                                 <TableCell className="text-muted-foreground">
-                                    {gallery.media_assets?.length ?? '—'}
+                                    {gallery.media_assets_count ?? '—'}
                                 </TableCell>
                                 <TableCell className="text-muted-foreground">
                                     {formatDateTime(gallery.updated_at)}

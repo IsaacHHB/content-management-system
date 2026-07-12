@@ -987,11 +987,11 @@ function toEmbedUrl(url: string): string | null {
         const host = u.hostname.replace('www.', '');
 
         if (host === 'youtube.com' && u.searchParams.get('v')) {
-            return `https://www.youtube.com/embed/${u.searchParams.get('v')}`;
+            return `https://www.youtube-nocookie.com/embed/${u.searchParams.get('v')}`;
         }
 
         if (host === 'youtu.be') {
-            return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
+            return `https://www.youtube-nocookie.com/embed/${u.pathname.slice(1)}`;
         }
 
         if (host === 'vimeo.com') {

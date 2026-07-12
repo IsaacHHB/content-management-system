@@ -37,7 +37,7 @@ class AcceptInviteController extends Controller
         $data = $request->merge(['email' => $inviteEmail])->validate([
             'email' => ['required', 'email', new AllowedEmailDomain],
             'name' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()->symbols()],
+            'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()->symbols()->uncompromised()],
         ]);
 
         $user = DB::transaction(function () use ($data, $token): User {

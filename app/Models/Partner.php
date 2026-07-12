@@ -6,10 +6,10 @@ use App\Contracts\SoftDeletableContent;
 use App\Models\Concerns\HasEditorialAudit;
 use App\Models\Concerns\HasReusableSlug;
 use App\Models\Concerns\RecordsActivity;
+use App\Support\CacheInvalidation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Sluggable\HasSlug;
 use Spatie\Sluggable\SlugOptions;
@@ -32,7 +32,7 @@ class Partner extends Model implements SoftDeletableContent
 
     protected static function booted(): void
     {
-        $forget = fn () => Cache::forget('public_partners');
+        $forget = fn () => CacheInvalidation::forgetAfterCommit('public_partners');
         static::saved($forget);
         static::deleted($forget);
         static::restored($forget);

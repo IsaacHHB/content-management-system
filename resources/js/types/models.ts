@@ -178,6 +178,7 @@ export type Gallery = Timestamps &
                 sort_order: number;
             };
         })[];
+        media_assets_count?: number;
     };
 
 export type TeamMember = Timestamps &

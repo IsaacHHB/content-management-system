@@ -38,7 +38,11 @@ class UserController extends Controller
         }
         DB::transaction(function () use ($user, $data): void {
             $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-            $removesSuper = $locked->hasRole(Role::SuperAdmin->value) && (($data['role'] ?? Role::SuperAdmin->value) !== Role::SuperAdmin->value || ($data['is_active'] ?? true) === false);
+            // `is_active` arrives as raw input ("0", "false"), so compare the filtered
+            // boolean — a strict `=== false` against a string silently skips the guard.
+            $staysActive = filter_var($data['is_active'] ?? true, FILTER_VALIDATE_BOOL);
+            $keepsSuper = ($data['role'] ?? Role::SuperAdmin->value) === Role::SuperAdmin->value;
+            $removesSuper = $locked->hasRole(Role::SuperAdmin->value) && (! $keepsSuper || ! $staysActive);
             if ($removesSuper) {
                 $active = count(User::role(Role::SuperAdmin->value)->where('is_active', true)->lockForUpdate()->get(['users.id'])->all());
                 abort_if($active <= 1, 422, 'The last active super administrator cannot be demoted or deactivated.');

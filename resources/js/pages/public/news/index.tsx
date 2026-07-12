@@ -96,10 +96,12 @@ export default function NewsIndex({
                                         !link.url &&
                                             'pointer-events-none opacity-50',
                                     )}
-                                    dangerouslySetInnerHTML={{
-                                        __html: link.label,
-                                    }}
-                                />
+                                >
+                                    {link.label
+                                        .replace('&laquo;', '«')
+                                        .replace('&raquo;', '»')
+                                        .replace(/<[^>]*>/g, '')}
+                                </Link>
                             ))}
                         </div>
                     </nav>

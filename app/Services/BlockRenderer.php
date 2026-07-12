@@ -121,6 +121,18 @@ class BlockRenderer
             $data['count'] = max(1, min(12, (int) $data['count']));
         }
 
+        if (isset($data['member_ids'])) {
+            if (! is_array($data['member_ids'])) {
+                throw ValidationException::withMessages(["blocks.{$index}.data.member_ids" => 'Member IDs must be an array.']);
+            }
+
+            $memberIds = array_map('intval', array_slice($data['member_ids'], 0, 50));
+            if (count(array_filter($memberIds, static fn (int $id): bool => $id < 1)) > 0) {
+                throw ValidationException::withMessages(["blocks.{$index}.data.member_ids" => 'Member IDs must be positive integers.']);
+            }
+            $data['member_ids'] = array_values(array_unique($memberIds));
+        }
+
         return $data;
     }
 

@@ -6,6 +6,7 @@ use App\Enums\PublishStatus;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\User;
+use App\Rules\ExistingImageAsset;
 use App\Services\BlockRenderer;
 use App\Services\MediaReferenceSynchronizer;
 use Illuminate\Database\Eloquent\Model;
@@ -51,7 +52,7 @@ class PostController extends ContentController
             'title' => ['required', 'string', 'max:255'], 'slug' => ['nullable', 'alpha_dash', 'max:255', Rule::unique('posts')->ignore($model?->getKey())->whereNull('deleted_at')],
             'excerpt' => ['required', 'string', 'max:2000'], 'blocks' => ['present', 'array'], 'status' => ['required', Rule::enum(PublishStatus::class)],
             'published_at' => ['nullable', 'date'], 'seo_title' => ['nullable', 'string', 'max:255'], 'seo_description' => ['nullable', 'string', 'max:255'],
-            'og_media_asset_id' => ['nullable', 'exists:media_assets,id'], 'author_id' => ['nullable', 'exists:users,id'], 'is_featured' => ['sometimes', 'boolean'],
+            'og_media_asset_id' => ['nullable', 'integer', new ExistingImageAsset], 'author_id' => ['nullable', 'exists:users,id'], 'is_featured' => ['sometimes', 'boolean'],
             'category_ids' => ['sometimes', 'array'], 'category_ids.*' => ['integer', 'exists:categories,id'],
         ];
     }

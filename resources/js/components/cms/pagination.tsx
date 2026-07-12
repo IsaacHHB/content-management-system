@@ -3,6 +3,13 @@ import { Link } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
 import type { Paginated } from '@/types/models';
 
+function paginationLabel(label: string): string {
+    return label
+        .replace('&laquo;', '«')
+        .replace('&raquo;', '»')
+        .replace(/<[^>]*>/g, '');
+}
+
 export function Pagination<T>({ meta }: { meta: Paginated<T> }) {
     if (meta.last_page <= 1) {
         return null;
@@ -26,8 +33,9 @@ export function Pagination<T>({ meta }: { meta: Paginated<T> }) {
                                 'border-primary bg-primary text-primary-foreground',
                             !link.url && 'pointer-events-none opacity-50',
                         )}
-                        dangerouslySetInnerHTML={{ __html: link.label }}
-                    />
+                    >
+                        {paginationLabel(link.label)}
+                    </Link>
                 ))}
             </div>
         </nav>

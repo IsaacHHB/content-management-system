@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Models\TeamMember;
+use App\Rules\ExistingImageAsset;
 use App\Services\MediaReferenceSynchronizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -46,7 +47,7 @@ class TeamMemberController extends ContentController
             'name' => ['required', 'string', 'max:255'], 'slug' => ['nullable', 'alpha_dash', 'max:255', Rule::unique('team_members')->ignore($model?->getKey())->whereNull('deleted_at')],
             'title' => ['required', 'string', 'max:255'], 'group' => ['required', Rule::in(['staff', 'board'])], 'bio' => ['required', 'string', 'max:10000'], 'email' => ['nullable', 'email', 'max:255'],
             'show_email' => ['required', 'boolean'], 'phone' => ['nullable', 'string', 'max:50'], 'show_phone' => ['required', 'boolean'],
-            'photo_media_asset_id' => ['nullable', 'exists:media_assets,id'], 'sort_order' => ['sometimes', 'integer', 'min:0'], 'is_active' => ['required', 'boolean'],
+            'photo_media_asset_id' => ['nullable', 'integer', new ExistingImageAsset], 'sort_order' => ['sometimes', 'integer', 'min:0'], 'is_active' => ['required', 'boolean'],
         ];
     }
 }

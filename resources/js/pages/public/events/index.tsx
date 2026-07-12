@@ -2,7 +2,7 @@ import { Link } from '@inertiajs/react';
 
 import { SeoHead } from '@/components/public/seo-head';
 import type { Seo } from '@/components/public/seo-head';
-import { formatDate, formatDateTime } from '@/lib/format';
+import { formatDateOnly, formatDateTime } from '@/lib/format';
 
 type EventSummary = {
     id: number;
@@ -13,6 +13,7 @@ type EventSummary = {
     start_date: string | null;
     end_date: string | null;
     all_day: boolean;
+    timezone: string;
     location_name: string | null;
     is_virtual: boolean;
 };
@@ -46,8 +47,8 @@ function EventList({
                     </Link>
                     <p className="mt-1 text-sm text-neutral-600">
                         {event.all_day
-                            ? formatDate(event.start_date)
-                            : formatDateTime(event.starts_at)}
+                            ? formatDateOnly(event.start_date)
+                            : formatDateTime(event.starts_at, event.timezone)}
                         {event.is_virtual
                             ? ' · Virtual'
                             : event.location_name

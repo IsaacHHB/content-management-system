@@ -40,7 +40,9 @@ class User extends Authenticatable implements PasskeyUser
     {
         $domain = Str::lower(Str::afterLast($this->email, '@'));
 
-        return in_array($domain, config('admin.allowed_domains', []), true);
+        $allowed = array_map(static fn (mixed $allowedDomain): string => Str::lower(trim((string) $allowedDomain)), config('admin.allowed_domains', []));
+
+        return in_array($domain, $allowed, true);
     }
 
     /**

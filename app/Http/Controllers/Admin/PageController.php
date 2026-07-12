@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\PublishStatus;
 use App\Models\Page;
 use App\Models\Redirect;
+use App\Rules\ExistingImageAsset;
 use App\Services\BlockRenderer;
 use App\Services\MediaReferenceSynchronizer;
 use Illuminate\Database\Eloquent\Model;
@@ -62,7 +63,7 @@ class PageController extends ContentController
             'published_at' => ['nullable', 'date'],
             'seo_title' => ['nullable', 'string', 'max:255'],
             'seo_description' => ['nullable', 'string', 'max:255'],
-            'og_media_asset_id' => ['nullable', 'exists:media_assets,id'],
+            'og_media_asset_id' => ['nullable', 'integer', new ExistingImageAsset],
             'locale' => ['required', 'string', 'max:8'],
             'is_locked' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],

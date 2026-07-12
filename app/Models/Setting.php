@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\CacheInvalidation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
@@ -19,8 +20,8 @@ class Setting extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => Cache::forget('settings'));
-        static::deleted(fn () => Cache::forget('settings'));
+        static::saved(fn () => CacheInvalidation::forgetAfterCommit('settings'));
+        static::deleted(fn () => CacheInvalidation::forgetAfterCommit('settings'));
     }
 
     /** @return array<string, mixed> */

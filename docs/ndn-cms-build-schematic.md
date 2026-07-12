@@ -102,14 +102,14 @@ Why this beats a separate API + SPA for NDN:
 | Slugs | `spatie/laravel-sluggable` | Auto slug generation with uniqueness |
 | Activity/audit log | `spatie/laravel-activitylog` | "Who changed what, when" for every model |
 | Backups | `spatie/laravel-backup` | Nightly DB + media directory to S3 (the only S3 use) |
-| Sitemap | `spatie/laravel-sitemap` | Auto-generated sitemap.xml |
+| Sitemap | First-party Laravel endpoint | Generated from published content at `/sitemap.xml` |
 | Rich text | Tiptap (React) | Modern, JSON-based, sanitizable — used inside the block builder |
 | Styling | Tailwind CSS 4 | CSS-first config (`@theme`), faster builds, easy for future maintainers |
 | Build tool | Vite (latest, `laravel-vite-plugin`) | Laravel default |
 | Frontend | React 19 + TypeScript | Function components + hooks only; no legacy APIs anywhere in the codebase |
 | Frontend lint/format | ESLint + Prettier (starter kit config, `tabWidth: 4`) | Enforced in CI |
 
-Version policy: `composer.json` and `package.json` constrain supported major versions, while committed lockfiles pin the exact tested dependency graph. Dependabot security updates are handled promptly; routine dependency updates are grouped into a monthly PR and tested in staging. As of July 2026, the intended package lines are Laravel 13, Inertia 3, React 19.2, Tailwind CSS 4.3, Vite 8.1, PHP 8.5, Node 24 LTS, and MySQL 9.7 LTS. Key Laravel package lines are `spatie/laravel-permission:^8.3`, `spatie/laravel-medialibrary:^11.23`, `spatie/laravel-sluggable:^4.0`, `spatie/laravel-activitylog:^5.0`, `spatie/laravel-backup:^10.3`, `spatie/laravel-sitemap:^8.2`, and `spatie/laravel-feed:^4.5`.
+Version policy: `composer.json` and `package.json` constrain supported major versions, while committed lockfiles pin the exact tested dependency graph. Dependabot security updates are handled promptly; routine dependency updates are grouped into a monthly PR and tested in staging. As of July 2026, the installed application lines are Laravel 13, Inertia 3, React 19.2, Tailwind CSS 4, Vite 8.1, PHP 8.5, `spatie/laravel-permission:^8.3`, `spatie/laravel-medialibrary:^11.23`, `spatie/laravel-sluggable:^4.0`, and `spatie/laravel-activitylog:^5.0`. Backup/feed packages remain production/deployment work and are not represented as installed local features.
 
 ### 2.3 Environments
 
@@ -1054,12 +1054,12 @@ export default function BlockRenderer({ blocks }: { blocks: Block[] }) {
 - **Disk & delivery:** `MEDIA_DISK=public` → `storage/app/public`, symlinked to `public/storage`. CloudFront caches `/storage/*` (long-lived, immutable hashed conversion paths) with the EC2 box as origin. Apache is configured to **never execute PHP** from under `public/storage` (Section 13 vhost), so an uploaded file can never run as code.
 - **Asset model:** a dedicated `media_assets` table/model owns the underlying Spatie record and global metadata (alt text, caption defaults, credit, focal point, status). Galleries and content blocks reference the asset instead of attaching duplicate media rows.
 - **Conversions** generated on upload via queued jobs: `thumb` (400px), `medium` (800px), `large` (1600px), each also as WebP; originals retained.
-- **Upload flow:** files POST to the app (`multipart/form-data`) into a temporary location; a finalize step verifies ownership, size, magic-byte MIME, image decoding, and checksum before creating the asset and moving it onto the media disk. A scheduled command sweeps abandoned temp files. (No presigned-URL/quarantine-bucket dance is needed with a local disk — the app already sits in the request path.)
-- **Upload constraints:** images `jpg/png/webp/heic` ≤ 15 MB (HEIC transcoded on upload); documents `pdf` ≤ 25 MB (for flyers, program applications). MIME is sniffed and decoded server-side, not extension-trusted. Production provisioning installs Imagick/ImageMagick with HEIF support and tests HEIC conversion during deploy/health checks.
+- **Upload flow:** files POST to the app (`multipart/form-data`) through PHP's request temp directory. Laravel/Symfony sniffs MIME, images are decoded, capped at 40 megapixels, reprocessed through Imagick to remove metadata, and then the asset + file are committed to the configured media disk. A separate resumable quarantine/finalize workflow is unnecessary for the current single-request local upload flow; it can be added if large/direct uploads are introduced.
+- **Upload constraints:** images `jpg/png/webp` ≤ 15 MB; documents `pdf` ≤ 25 MB (for flyers, program applications). MIME is sniffed and images are decoded server-side, not extension-trusted. HEIC input/transcoding remains a documented future enhancement and must not be advertised as accepted until production ImageMagick HEIF support is provisioned and tested.
 - **Central media screen** in the CMS: grid, search by filename/alt, see which content uses each file, edit alt text globally, delete (blocked if in use).
 - **EXIF stripped** on upload (privacy — photos of families and youth may carry GPS data). This matters for NDN's community photos.
 - **Backup coverage:** because media lives on the box (not in a versioned bucket), the media directory is included in the nightly backup set (Section 15.3) so a lost EBS volume is recoverable.
-- Responsive `srcset` generated by medialibrary and consumed by the shared `<Img>` React component.
+- Responsive `srcset`/a shared `<Img>` abstraction remains a future performance enhancement; current renderers use the generated thumbnail/medium/large assets.
 
 ---
 
@@ -1068,8 +1068,8 @@ export default function BlockRenderer({ blocks }: { blocks: Block[] }) {
 - Public pages are Inertia/React pages under `resources/js/pages/public/`, wrapped in `public-layout.tsx` (header menu, footer, partner banner from settings).
 - **SSR enabled for public routes** (`inertiajs/inertia-laravel` SSR via a Node sidecar process managed by Supervisor, `php artisan inertia:start-ssr`). Crawlers and social scrapers get full HTML; this also improves LCP on slow reservations/rural connections — a real consideration for NDN's audience.
 - Per-page `<Head>`: SEO title/description fields, canonical URL, OpenGraph + Twitter cards with the page's OG image (fallback to site default).
-- `sitemap.xml` regenerated hourly by the scheduler from published content; `robots.txt` blocks `/admin`.
-- 301 redirect map table (`redirects`: from_path, to_path) editable by admins — critical for migration (Section 12) so old URLs keep working.
+- `sitemap.xml` is generated on request from published content; `robots.txt` blocks `/admin`, `/settings`, and `/preview` and points crawlers to the sitemap.
+- The 301 redirect map table (`redirects`: from_path, to_path) is populated automatically when page paths change. A dedicated manual legacy-redirect management screen remains future migration work.
 - Accessibility target: WCAG 2.2 AA — semantic landmarks, skip link, focus states (including focus-not-obscured), target sizing, required alt text, color-contrast-checked palette, keyboard-navigable menus and lightbox.
 - Performance budget: < 200KB JS on public routes (code-split per page via Vite), CloudFront-cached static assets with immutable hashes, lazy-loaded images.
 - Route resolution for hierarchical pages — a catch-all at the **bottom** of `routes/web.php`:
@@ -1229,7 +1229,6 @@ Schedule::command('invites:prune')->dailyAt('00:10');           // expired invit
 Schedule::command('backup:clean')->dailyAt('00:30');            // rotate old backups
 Schedule::command('backup:run')->dailyAt('01:00');              // DB dump → S3
 Schedule::command('backup:monitor')->dailyAt('08:00');          // alert if last backup missing/stale
-Schedule::command('sitemap:generate')->hourly();
 Schedule::command('contact:prune')->monthly();                  // 24-month retention (Section 8.9)
 Schedule::command('activitylog:clean')->weekly();               // trim audit log per config
 ```
@@ -1343,7 +1342,7 @@ Application:
 - [x] Signed URLs for invites and draft previews
 - [x] Rate limiting: login 5/min, invite accept 5/min, contact form 3/10min
 - [x] File uploads: MIME-sniffed, size-capped, EXIF-stripped; stored on EBS outside the repo, served through CloudFront with PHP execution denied under `public/storage`
-- [x] Security headers via middleware: CSP with a per-request Laravel Vite nonce (`Vite::useCspNonce()`), X-Frame-Options DENY, X-Content-Type-Options, `Referrer-Policy: no-referrer`, and HSTS (preload only after every applicable subdomain is confirmed HTTPS-ready)
+- [x] Security headers via middleware: CSP with a per-request Laravel Vite nonce (`Vite::useCspNonce()`), X-Frame-Options SAMEORIGIN (required by signed admin preview iframes), X-Content-Type-Options, `Referrer-Policy: no-referrer`, Permissions-Policy, and production HSTS (preload only after every applicable subdomain is confirmed HTTPS-ready)
 - [x] `APP_DEBUG=false` in production; verbose errors never leak
 
 Infrastructure:

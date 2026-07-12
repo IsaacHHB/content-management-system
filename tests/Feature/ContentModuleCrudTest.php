@@ -9,6 +9,7 @@ use App\Models\Post;
 use App\Models\Program;
 use App\Models\TeamMember;
 use App\Models\User;
+use App\Services\SiteChrome;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SettingSeeder;
 use Illuminate\Support\Str;
@@ -111,6 +112,22 @@ test('menus accept one nested level with internal model references', function ()
 
     expect($menu->items()->count())->toBe(1)
         ->and($menu->items()->firstOrFail()->children()->count())->toBe(1);
+});
+
+test('menu changes invalidate the public navigation cache', function () {
+    $menu = Menu::where('slot', 'header')->firstOrFail();
+    expect(app(SiteChrome::class)->menus()['header'])->toBe([]);
+
+    $this->actingAs($this->admin)->putJson(route('admin.menus.update', $menu), [
+        'name' => 'Main navigation',
+        'items' => [[
+            'label' => 'Contact', 'custom_url' => '/contact',
+            'opens_new_tab' => false, 'children' => [],
+        ]],
+    ])->assertRedirect();
+
+    expect(app(SiteChrome::class)->menus()['header'])->toHaveCount(1)
+        ->and(app(SiteChrome::class)->menus()['header'][0]['url'])->toBe('/contact');
 });
 
 test('editors cannot delete another authors draft', function () {

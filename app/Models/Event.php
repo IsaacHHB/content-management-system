@@ -7,6 +7,7 @@ use App\Enums\PublishStatus;
 use App\Models\Concerns\HasEditorialAudit;
 use App\Models\Concerns\HasPublishing;
 use App\Models\Concerns\HasReusableSlug;
+use App\Models\Concerns\InvalidatesMenuCache;
 use App\Models\Concerns\RecordsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -31,7 +32,7 @@ use Spatie\Sluggable\SlugOptions;
  */
 class Event extends Model implements SoftDeletableContent
 {
-    use HasEditorialAudit, HasPublishing, HasReusableSlug, HasSlug, LogsActivity, RecordsActivity, SoftDeletes {
+    use HasEditorialAudit, HasPublishing, HasReusableSlug, HasSlug, InvalidatesMenuCache, LogsActivity, RecordsActivity, SoftDeletes {
         RecordsActivity::getActivitylogOptions insteadof LogsActivity;
     }
 
@@ -65,16 +66,35 @@ class Event extends Model implements SoftDeletableContent
     public function scopeUpcoming(Builder $query): Builder
     {
         return $query
-            ->where(function (Builder $query): void {
-                $query->where(function (Builder $query): void {
-                    $query->where('all_day', true)
-                        ->whereRaw('COALESCE(end_date, start_date) >= ?', [today()->toDateString()]);
-                })->orWhere(function (Builder $query): void {
-                    $query->where('all_day', false)
-                        ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()]);
-                });
-            })
+            ->where(fn (Builder $query) => $this->applyUpcomingConstraint($query))
             ->orderByRaw('CASE WHEN all_day = 1 THEN start_date ELSE starts_at END');
+    }
+
+    /**
+     * The exact complement of `upcoming()`. Deriving "past" from the same
+     * constraint keeps an event from landing in both lists (an all-day event
+     * dated today is upcoming by date but already elapsed by instant).
+     *
+     * @param  Builder<Event>  $query
+     * @return Builder<Event>
+     */
+    public function scopePast(Builder $query): Builder
+    {
+        return $query
+            ->whereNot(fn (Builder $query) => $this->applyUpcomingConstraint($query))
+            ->orderByRaw('CASE WHEN all_day = 1 THEN start_date ELSE starts_at END DESC');
+    }
+
+    /** @param  Builder<Event>  $query */
+    private function applyUpcomingConstraint(Builder $query): void
+    {
+        $query->where(function (Builder $query): void {
+            $query->where('all_day', true)
+                ->whereRaw('COALESCE(end_date, start_date) >= ?', [today()->toDateString()]);
+        })->orWhere(function (Builder $query): void {
+            $query->where('all_day', false)
+                ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()]);
+        });
     }
 
     /** @return BelongsTo<MediaAsset, $this> */

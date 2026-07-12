@@ -8,12 +8,13 @@ use App\Models\Event;
 use App\Models\Page;
 use App\Models\Post;
 use App\Models\Program;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(Request $request): Response
     {
         return Inertia::render('dashboard', [
             'counts' => [
@@ -21,7 +22,9 @@ class DashboardController extends Controller
                 'programs' => Program::count(),
                 'events' => Event::count(),
                 'posts' => Post::count(),
-                'unread_contacts' => ContactSubmission::where('is_read', false)->count(),
+                'unread_contacts' => $request->user()->can('contacts.manage')
+                    ? ContactSubmission::where('is_read', false)->count()
+                    : 0,
             ],
         ]);
     }

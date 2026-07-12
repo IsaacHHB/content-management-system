@@ -19,7 +19,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { toDatetimeLocal } from '@/lib/format';
+import { fromDatetimeLocal, toDatetimeLocal } from '@/lib/format';
 import type { Block, Page } from '@/types/models';
 
 type PageFormData = {
@@ -60,6 +60,11 @@ export default function PageForm({
         is_locked: item?.is_locked ?? false,
         sort_order: item?.sort_order ?? 0,
     });
+
+    form.transform((data) => ({
+        ...data,
+        published_at: fromDatetimeLocal(data.published_at),
+    }));
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();

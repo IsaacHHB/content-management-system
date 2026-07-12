@@ -15,7 +15,7 @@ test('the calendar buckets a published event on its date with its time', functio
 
     Event::create([
         'title' => 'Morning Circle', 'slug' => 'morning-circle', 'description' => [],
-        'starts_at' => Carbon::parse('2026-08-12 06:30:00'), 'all_day' => false,
+        'starts_at' => Carbon::parse('2026-08-12 13:30:00', 'UTC'), 'all_day' => false,
         'timezone' => 'America/Los_Angeles',
         'status' => PublishStatus::Published, 'published_at' => now(),
         'created_by' => $user->id, 'updated_by' => $user->id,

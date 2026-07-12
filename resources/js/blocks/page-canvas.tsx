@@ -51,6 +51,7 @@ export function PageCanvas({
     const [editing, setEditing] = useState(true);
     const [reloadKey, setReloadKey] = useState(0);
     const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const props = usePage().props;
     const previews = (props.blockPreviews as PreviewData | null) ?? null;
     const previewUrl = (props.previewUrl as string | null) ?? null;
@@ -60,18 +61,19 @@ export function PageCanvas({
 
     // Persist the current blocks as a draft so the preview iframe (which renders
     // the saved page) reflects the latest edits. Returns once saved.
-    const saveDraft = async () => {
+    const saveDraft = async (): Promise<boolean> => {
         if (!blocksUrl) {
-            return;
+            return true;
         }
 
         const csrf = decodeURIComponent(
             document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '',
         );
         setSaving(true);
+        setSaveError(null);
 
         try {
-            await fetch(blocksUrl, {
+            const response = await fetch(blocksUrl, {
                 method: 'PATCH',
                 credentials: 'same-origin',
                 headers: {
@@ -81,6 +83,27 @@ export function PageCanvas({
                 },
                 body: JSON.stringify({ blocks: value }),
             });
+
+            if (!response.ok) {
+                // A 422 (invalid block/media) or 419 (expired session) would
+                // otherwise resolve silently and the preview would show the last
+                // saved blocks, so the author thinks the edit persisted.
+                setSaveError(
+                    response.status === 419
+                        ? 'Your session expired. Reload the page and sign in again.'
+                        : 'The draft could not be saved, so the preview below is out of date.',
+                );
+
+                return false;
+            }
+
+            return true;
+        } catch {
+            setSaveError(
+                'The draft could not be saved — check your connection.',
+            );
+
+            return false;
         } finally {
             setSaving(false);
         }
@@ -88,8 +111,8 @@ export function PageCanvas({
 
     // Switch to the preview iframe, saving the draft first so new edits show.
     const showPreview = async () => {
-        if (previewUrl) {
-            await saveDraft();
+        if (previewUrl && !(await saveDraft())) {
+            return;
         }
 
         setEditing(false);
@@ -98,6 +121,14 @@ export function PageCanvas({
 
     return (
         <div className="rounded-lg border bg-background">
+            {saveError && (
+                <p
+                    role="alert"
+                    className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                >
+                    {saveError}
+                </p>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
                 <div className="flex items-center gap-1 rounded-md border p-0.5">
                     {DEVICES.map((d) => (

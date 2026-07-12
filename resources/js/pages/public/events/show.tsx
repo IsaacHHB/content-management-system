@@ -2,7 +2,7 @@ import { BlockRenderer } from '@/blocks/block-renderer';
 import { SeoHead } from '@/components/public/seo-head';
 import type { Seo } from '@/components/public/seo-head';
 import { Button } from '@/components/ui/button';
-import { formatDate, formatDateTime } from '@/lib/format';
+import { formatDateOnly, formatDateTime } from '@/lib/format';
 import type { Block } from '@/types/models';
 
 type EventShowProps = {
@@ -31,8 +31,8 @@ type EventShowProps = {
 
 export default function EventShow({ event, seo }: EventShowProps) {
     const when = event.all_day
-        ? formatDate(event.start_date)
-        : formatDateTime(event.starts_at);
+        ? formatDateOnly(event.start_date)
+        : formatDateTime(event.starts_at, event.timezone);
     const addressLine = [
         event.address,
         event.city,

@@ -11,6 +11,19 @@ type PublicShared = {
     publicPartners?: PublicPartner[];
 };
 
+function MenuLink({ item }: { item: MenuItem }) {
+    return (
+        <a
+            href={item.url ?? '#'}
+            target={item.opens_new_tab ? '_blank' : undefined}
+            rel={item.opens_new_tab ? 'noreferrer' : undefined}
+            className="rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-4"
+        >
+            {item.label}
+        </a>
+    );
+}
+
 export default function PublicLayout({ children }: PropsWithChildren) {
     const page = usePage();
     const settings = (page.props.settings ?? {}) as PublicShared['settings'];
@@ -36,18 +49,29 @@ export default function PublicLayout({ children }: PropsWithChildren) {
                         {siteName}
                     </Link>
                     <nav className="flex flex-wrap gap-4 text-sm">
-                        {menus.header.map((item) => (
-                            <a
-                                key={item.id}
-                                href={item.url ?? '#'}
-                                target={
-                                    item.opens_new_tab ? '_blank' : undefined
-                                }
-                                rel="noreferrer"
-                            >
-                                {item.label}
-                            </a>
-                        ))}
+                        {menus.header.map((item) =>
+                            item.children?.length ? (
+                                <details
+                                    key={item.id}
+                                    className="group relative"
+                                >
+                                    <summary className="cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4">
+                                        {item.label}
+                                    </summary>
+                                    <div className="absolute right-0 z-20 mt-2 hidden min-w-48 flex-col gap-3 rounded-md border bg-white p-4 shadow-lg group-open:flex">
+                                        <MenuLink item={item} />
+                                        {item.children.map((child) => (
+                                            <MenuLink
+                                                key={child.id}
+                                                item={child}
+                                            />
+                                        ))}
+                                    </div>
+                                </details>
+                            ) : (
+                                <MenuLink key={item.id} item={item} />
+                            ),
+                        )}
                     </nav>
                 </div>
             </header>
@@ -80,9 +104,7 @@ export default function PublicLayout({ children }: PropsWithChildren) {
                     </div>
                     <nav className="flex flex-col gap-2 text-sm">
                         {menus.footer.map((item) => (
-                            <a key={item.id} href={item.url ?? '#'}>
-                                {item.label}
-                            </a>
+                            <MenuLink key={item.id} item={item} />
                         ))}
                     </nav>
                     <div className="text-sm text-neutral-500">

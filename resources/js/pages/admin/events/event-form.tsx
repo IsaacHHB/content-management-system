@@ -20,7 +20,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { toDatetimeLocal } from '@/lib/format';
+import { fromDatetimeLocal, toDateInput, toDatetimeLocal } from '@/lib/format';
 import type { Block, NdnEvent } from '@/types/models';
 
 const TIMEZONES = [
@@ -69,10 +69,10 @@ export default function EventForm({ item }: { item?: NdnEvent }) {
         seo_title: item?.seo_title ?? '',
         seo_description: item?.seo_description ?? '',
         og_media_asset_id: item?.og_media_asset_id ?? null,
-        starts_at: toDatetimeLocal(item?.starts_at),
-        ends_at: toDatetimeLocal(item?.ends_at),
-        start_date: item?.start_date ?? '',
-        end_date: item?.end_date ?? '',
+        starts_at: toDatetimeLocal(item?.starts_at, item?.timezone),
+        ends_at: toDatetimeLocal(item?.ends_at, item?.timezone),
+        start_date: toDateInput(item?.start_date),
+        end_date: toDateInput(item?.end_date),
         all_day: item?.all_day ?? false,
         timezone: item?.timezone ?? 'America/Los_Angeles',
         location_name: item?.location_name ?? '',
@@ -84,6 +84,11 @@ export default function EventForm({ item }: { item?: NdnEvent }) {
         virtual_url: item?.virtual_url ?? '',
         registration_url: item?.registration_url ?? '',
     });
+
+    form.transform((data) => ({
+        ...data,
+        published_at: fromDatetimeLocal(data.published_at),
+    }));
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();

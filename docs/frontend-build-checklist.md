@@ -14,17 +14,17 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Shared TypeScript types (`types/models.ts`): Page, Program, NdnEvent, Post, Category, Gallery, MediaAsset, TeamMember, Menu, MenuItem, Setting, ContactSubmission, Invite, Activity + Block union, Paginated<T>. User type extended with roles/permissions.
 - [x] Installed frontend libs: `@dnd-kit/*`, `@tiptap/*`, Radix (tabs, switch, alert-dialog, popover, accordion). Added shadcn primitives: textarea, tabs, switch, table, alert-dialog, popover, accordion.
 - [x] Converted admin controllers to Inertia: content modules (pages/programs/events/posts/galleries/team) via `ContentController` (index/create/edit render, mutations redirect); dashboard, activity, contacts, menus, users, settings, invites, media (dual-mode JSON+Inertia). Routes switched `apiResource`→`resource` (create/edit). Kept category/media-mutation/invite-mutation/contact-mutation as JSON for in-page AJAX.
-- [~] Admin layout — reuse starter `AppLayout` sidebar shell; **TODO** swap nav to CMS modules (permission-gated).
-- [ ] Public layout (`public-layout.tsx`) — header menu + footer from settings/menus, partner banner, skip link.
-- [ ] Shared `<Img>`, `<Pagination>`, `<StatusBadge>`, index `<DataTable>` (search + status filter), form field components.
-- [ ] Update backend test suite for Inertia responses (currently assert JSON) — keep green.
+- [x] Admin layout with permission-gated CMS navigation.
+- [x] Public layout (`public-layout.tsx`) — nested header menu, footer from settings/menus, partner strip, skip link.
+- [x] Shared pagination/status/index/form components. A responsive shared `<Img>` abstraction remains deferred.
+- [x] Backend test suite updated for Inertia responses and kept green.
 
 ## Phase 1 — Block system (shared admin preview + public render)
 
-- [ ] Block TS types + registry.
-- [ ] `block-renderer.tsx` — maps block type → component, used by both admin preview and public site.
-- [ ] Per-block components (13): hero, rich_text, image, image_text, gallery_embed, video_embed, cards, cta_banner, events_list, news_list, team_grid, accordion, divider/spacer.
-- [ ] Tiptap editor integration (rich_text) with allow-listed marks/nodes matching server sanitizer.
+- [x] Block TS types + registry.
+- [x] `block-renderer.tsx` — maps block type → component, used by both admin preview and public site.
+- [x] Per-block components: hero, rich_text, image, image_text, gallery_embed, video_embed, cards, cta_banner, events_list, news_list, team_grid, partners, accordion, divider/spacer.
+- [x] Tiptap editor integration (rich_text) with allow-listed marks/nodes matching server sanitizer.
 - [x] Block builder editor — add/reorder (@dnd-kit), duplicate/delete/collapse, per-block settings panels (`blocks/block-builder.tsx`). Server-side `BlockHydrator` resolves media/gallery/events refs for both public render and admin edit previews.
 - [x] Block registry (`blocks/registry.tsx`) — editor + renderer for all 14 types; Tiptap editor + dependency-light renderer (`blocks/tiptap.tsx`); shared `block-renderer.tsx`.
 
@@ -58,21 +58,33 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Programs index/detail; Events index (upcoming/past) + detail; News index (category filter, pagination) + detail.
 - [x] Gallery index + detail with lightbox; Contact (form, honeypot, min-time).
 - [x] Per-page SEO `<Head>` (`components/public/seo-head.tsx` — title/description/OG/Twitter).
-- [ ] RSS feed for news, sitemap.xml/robots.txt (deferred — needs spatie/laravel-feed + sitemap).
+- [x] First-party `sitemap.xml` plus `robots.txt` crawler exclusions.
+- [ ] RSS feed for news.
 - [x] SSR runtime enabled (`config/inertia.php` `ssr.bundle` → `bootstrap/ssr/app.js`; verified initial HTML is server-rendered incl. per-page OG meta). Prod runs `inertia:start-ssr` under Supervisor.
 
 ## Phase 5 — Content migration (from nativedadsnetwork.org) — DONE
 
 - [x] `LegacyContentSeeder` imports org settings, team roster (Mike Duncan, Albert Titman, Patricia Titman, Joshua Hoaglen Sr.), programs (Wellness/Youth/Conferences), events (Red Road to Wellbriety, Wake Up With Wellness, Parenting Circle), news (Woodland Mural, Thicha Wole), an About page, and header/footer menus — all published.
-- [ ] Real media/image import from the legacy repo into the media library on **local disk** (`storage/app/public` via `php artisan storage:link`). No S3 for media — see the storage decision in the schematic §10.
+- [x] Real media/image import from the legacy repo into the media library on **local disk** (`storage/app/public` via `php artisan storage:link`).
 
 ## Verification
 
 - [x] `npm run types:check`, `npm run lint:check`, `npm run format:check` clean.
 - [x] `npm run build` and `npm run build:ssr` succeed.
 - [x] Backend `pint` + `phpstan` (level 7) clean after the conversion.
-- [x] Pest suite updated for Inertia responses — 85 passed / 2 skipped.
-- [x] Manual smoke: public home + admin dashboard + program block editor verified in a real browser session.
+- [x] Pest suite — 121 passed / 2 intentionally skipped (503 assertions).
+- [x] Manual smoke **re-run with the SSR runtime on** (July 11, second pass): public home, events, admin dashboard, pages index, and the page editor verified in a real browser with a clean console.
+
+> **Run the browser smoke test with `inertia:start-ssr` running.** Two defects (below) were invisible to the entire PHP/TS/build suite *and* to a client-rendered browser session — they only appear once SSR is serving the initial HTML, which is how production runs.
+
+## Browser-only regressions found and fixed (July 11, 2026 — second pass)
+
+- [x] **The CSP broke every admin screen under SSR.** `style-src` had a nonce *and* `'unsafe-inline'`; a nonce makes browsers ignore `'unsafe-inline'`, so inline `style="..."` attributes were dropped. SSR emits the sidebar's `style="--sidebar-width:16rem"` into the HTML and React does not re-apply it on hydration, so the variable resolved empty, the sidebar spacer collapsed to `0`, and admin content rendered under the fixed sidebar. Fixed with `style-src-attr 'unsafe-inline'`. (React's runtime styles go through the CSSOM, which CSP does not block — hence invisible without SSR.)
+- [x] **Every YouTube embed was CSP-blocked** — `registry.tsx` built `youtube.com/embed/...` while `frame-src` only allowed `youtube-nocookie.com`. The renderer now emits `youtube-nocookie.com`.
+- [x] **All-day event dates displayed one day early**, and **editing an all-day event silently blanked its date fields** (a full ISO timestamp fed to `<input type="date">` renders empty, so Save then failed validation with no visible cause). Added `formatDateOnly()` / `toDateInput()` in `lib/format.ts`.
+- [x] **`published_at` drifted by the browser's UTC offset on every save** across all five content forms (the input was browser-local, the server re-parsed it as UTC). Forms now submit an absolute instant via `fromDatetimeLocal()`.
+- [x] **The visual editor swallowed failed draft saves** — `page-canvas.tsx` ignored `response.ok`, so a 422/419 resolved silently and the preview iframe showed stale blocks while the author believed the edit had saved. It now surfaces the error and will not show a misleading preview.
+- [x] **Gallery index photo count was permanently blank** (`media_assets` was never loaded); now uses a `withCount` `media_assets_count`.
 
 ## Requested enhancements (planned — July 11, 2026)
 
@@ -80,7 +92,7 @@ Design ground rules (confirmed): the public site's visual/brand design is a **bl
 
 **Source material — use the legacy repo, not live-site scraping:** https://github.com/NativeDadsNetwork/Nativedads (public). It contains the full static HTML of the old site (exact copy for board/staff bios, programs, about — `director.html`, `boardChair.html`, `purpose.html`, `wellness.html`, etc.) **and `img/` with 407 real images**: `img/partners` (funder logos — 7th Generation Fund, California Endowment, Elevate Youth California, Native Voices Rising, Common Counsel), `img/avatars` (team photos), `img/gallery` + `img/newGallery`, `img/logos` (NDN logo + Boys With Braids + fatherhood), `img/mural-project`. This upgrades every migration/enhancement item below with real copy + assets.
 
-- [x] **Calendar view for events.** Public month-grid calendar at `/events/calendar` (route ordered before `events/{slug}`): 6-week Sun–Sat grid, prev/next month navigation via `?month=YYYY-MM`, today highlighted, out-of-month days dimmed, events placed on their day (timed events show their time, all-day events bucket on `start_date`) and linking to the detail page. Cross-linked with the list view both ways. `EventController@calendar` + `public/events/calendar.tsx`. Times display as the entered wall-clock value (the app runs in UTC and stores times unshifted — matches how they're entered). 3 feature tests. Note: the app's broader event-timezone pipeline (the `timezone` field isn't applied on storage/display) is a pre-existing inconsistency left as-is.
+- [x] **Calendar view for events.** Public month-grid calendar at `/events/calendar` (route ordered before `events/{slug}`): 6-week Sun–Sat grid, prev/next month navigation via `?month=YYYY-MM`, today highlighted, out-of-month days dimmed, events placed on their day and linked to details. Timed input is interpreted in the selected IANA time zone, stored as UTC, and converted back to the event's zone for admin/public display; all-day dates remain date-only.
 
 - [x] **Import real assets + copy from the legacy repo.** Curated assets committed under `database/seeders/assets/` (logos, 11 real team headshots, funder logos, gallery, mural). `LegacyMediaSeeder` imports them into MediaAssets on local disk; `LegacyContentSeeder` seeds the real 12-person board/staff roster with verbatim bios + photos, 4 real programs, the real About page (purpose/vision/background), 2 galleries, and the real org settings (tagline "Little Efforts Make Big Changes", YouTube, real logo). Fixed two latent backend bugs found in the process: (1) media conversions never generated (the `registerMediaConversions` guard read `$this->type`, which is null on medialibrary's bare model instance — now keys off the media file's mime type); (2) `LegacyContentSeeder` wrote settings via a query-builder `update()` that bypassed the json cast, silently dropping every string setting — now uses model saves. Added a `group` (staff/board) column to team_members. Image driver set to imagick (GD OOM'd on the large headshots).
 
@@ -102,4 +114,4 @@ Design ground rules (confirmed): the public site's visual/brand design is a **bl
 ## Deferred by design
 - [ ] Final visual/brand design of the public site (colors, typography, imagery, motion).
 - [ ] Production deploy wiring for local-disk media (`storage:link`, CloudFront `/storage/*` behavior, media dir in nightly backups). S3 for media is explicitly **not** planned — media library disk is a one-line switch if that ever changes (schematic §10).
-- [ ] RSS + sitemap packages; trashed-content recovery UI.
+- [ ] RSS feed; trashed-content recovery UI; responsive shared image/srcset component.

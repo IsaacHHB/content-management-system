@@ -8,6 +8,7 @@ use App\Models\Menu;
 use App\Models\Page;
 use App\Models\Post;
 use App\Models\Program;
+use App\Rules\SafeUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,7 @@ class MenuController extends Controller
     public function update(Request $request, Menu $menu): RedirectResponse
     {
         abort_unless($request->user()->can('menus.manage'), 403);
-        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'items' => ['present', 'array', 'max:50'], 'items.*.label' => ['required', 'string', 'max:255'], 'items.*.linkable_type' => ['nullable', Rule::in(self::LINKABLES)], 'items.*.linkable_id' => ['nullable', 'integer'], 'items.*.custom_url' => ['nullable', 'string', 'max:2048'], 'items.*.opens_new_tab' => ['required', 'boolean'], 'items.*.children' => ['sometimes', 'array', 'max:20'], 'items.*.children.*.label' => ['required', 'string', 'max:255'], 'items.*.children.*.linkable_type' => ['nullable', Rule::in(self::LINKABLES)], 'items.*.children.*.linkable_id' => ['nullable', 'integer'], 'items.*.children.*.custom_url' => ['nullable', 'string', 'max:2048'], 'items.*.children.*.opens_new_tab' => ['required', 'boolean']]);
+        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'items' => ['present', 'array', 'max:50'], 'items.*.label' => ['required', 'string', 'max:255'], 'items.*.linkable_type' => ['nullable', Rule::in(self::LINKABLES)], 'items.*.linkable_id' => ['nullable', 'integer'], 'items.*.custom_url' => ['nullable', 'string', 'max:2048', new SafeUrl], 'items.*.opens_new_tab' => ['required', 'boolean'], 'items.*.children' => ['sometimes', 'array', 'max:20'], 'items.*.children.*.label' => ['required', 'string', 'max:255'], 'items.*.children.*.linkable_type' => ['nullable', Rule::in(self::LINKABLES)], 'items.*.children.*.linkable_id' => ['nullable', 'integer'], 'items.*.children.*.custom_url' => ['nullable', 'string', 'max:2048', new SafeUrl], 'items.*.children.*.opens_new_tab' => ['required', 'boolean']]);
         DB::transaction(function () use ($menu, $data): void {
             $menu->update(['name' => $data['name']]);
             $menu->items()->delete();

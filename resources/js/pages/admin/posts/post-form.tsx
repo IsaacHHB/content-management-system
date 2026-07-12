@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { toDatetimeLocal } from '@/lib/format';
+import { fromDatetimeLocal, toDatetimeLocal } from '@/lib/format';
 import type { Block, Post } from '@/types/models';
 
 type PostFormData = {
@@ -65,6 +65,11 @@ export default function PostForm({
         is_featured: item?.is_featured ?? false,
         category_ids: item?.categories?.map((c) => c.id) ?? [],
     });
+
+    form.transform((data) => ({
+        ...data,
+        published_at: fromDatetimeLocal(data.published_at),
+    }));
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();

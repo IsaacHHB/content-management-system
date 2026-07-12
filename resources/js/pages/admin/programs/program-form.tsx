@@ -12,7 +12,7 @@ import { PageHeader } from '@/components/cms/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { toDatetimeLocal } from '@/lib/format';
+import { fromDatetimeLocal, toDatetimeLocal } from '@/lib/format';
 import type { Block, Program } from '@/types/models';
 
 type ProgramFormData = {
@@ -48,6 +48,11 @@ export default function ProgramForm({ item }: { item?: Program }) {
         contact_phone: item?.contact_phone ?? '',
         external_url: item?.external_url ?? '',
     });
+
+    form.transform((data) => ({
+        ...data,
+        published_at: fromDatetimeLocal(data.published_at),
+    }));
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();

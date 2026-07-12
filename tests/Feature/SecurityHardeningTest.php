@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\MediaAsset;
+use App\Models\Menu;
+use App\Models\Page;
 use App\Models\User;
 use App\Services\BlockRenderer;
 use Database\Seeders\RolePermissionSeeder;
@@ -137,3 +139,90 @@ test('deactivated accounts are rejected at login regardless of authentication pa
 
     event(new Login('web', $user, false));
 })->throws(AuthenticationException::class);
+
+test('deactivated sessions are terminated on every web route including fortify endpoints', function () {
+    $user = User::factory()->create(['is_active' => false]);
+
+    $this->actingAs($user)->getJson(route('passkey.registration-options'))
+        ->assertUnauthorized();
+
+    $this->assertGuest();
+});
+
+test('web responses include nonce based browser security headers', function () {
+    $response = $this->get('/')->assertOk();
+    $policy = (string) $response->headers->get('Content-Security-Policy');
+
+    expect($policy)->toContain("default-src 'self'")
+        ->and($policy)->toContain("object-src 'none'")
+        ->and($response->headers->get('X-Content-Type-Options'))->toBe('nosniff')
+        ->and($response->headers->get('X-Frame-Options'))->toBe('SAMEORIGIN')
+        ->and($response->headers->get('Referrer-Policy'))->toBe('no-referrer');
+
+    preg_match("/'nonce-([^']+)'/", $policy, $matches);
+    expect($matches[1] ?? null)->not->toBeNull()
+        ->and($response->getContent())->toContain('nonce="'.($matches[1] ?? '').'"');
+});
+
+test('menu custom urls reject script and protocol relative targets', function (string $url) {
+    $this->seed(SettingSeeder::class);
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+    $menu = Menu::where('slot', 'header')->firstOrFail();
+
+    $this->actingAs($admin)->putJson(route('admin.menus.update', $menu), [
+        'name' => 'Header',
+        'items' => [[
+            'label' => 'Unsafe',
+            'custom_url' => $url,
+            'linkable_type' => null,
+            'linkable_id' => null,
+            'opens_new_tab' => false,
+            'children' => [],
+        ]],
+    ])->assertUnprocessable()->assertJsonValidationErrors('items.0.custom_url');
+
+    expect($menu->items()->count())->toBe(0);
+})->with(['javascript:alert(1)', '//evil.example/path', '/\\evil.example/path']);
+
+test('the sitemap exposes published content and excludes drafts', function () {
+    Page::create(['title' => 'Public', 'slug' => 'public-page', 'blocks' => [], 'status' => 'published', 'published_at' => now()]);
+    Page::create(['title' => 'Draft', 'slug' => 'draft-page', 'blocks' => [], 'status' => 'draft']);
+
+    $this->get(route('sitemap'))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/xml; charset=UTF-8')
+        ->assertSee(url('/public-page'), false)
+        ->assertDontSee(url('/draft-page'), false);
+});
+
+test('profile email addresses are normalized before uniqueness checks and storage', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->patch(route('profile.update'), [
+        'name' => $user->name,
+        'email' => '  UPDATED@NATIVEDADSNETWORK.ORG ',
+    ])->assertRedirect(route('profile.edit'));
+
+    expect($user->refresh()->email)->toBe('updated@nativedadsnetwork.org');
+});
+
+test('missing media references return validation errors instead of database errors', function () {
+    $editor = User::factory()->create();
+    $editor->assignRole('editor');
+
+    $this->actingAs($editor)->postJson(route('admin.pages.store'), [
+        'parent_id' => null,
+        'title' => 'Invalid media page',
+        'slug' => 'invalid-media-page',
+        'blocks' => [[
+            'id' => 'image-1',
+            'type' => 'image',
+            'data' => ['media_asset_id' => 999999, 'alt' => 'Missing'],
+        ]],
+        'status' => 'draft',
+        'locale' => 'en',
+    ])->assertUnprocessable()->assertJsonValidationErrors('blocks');
+
+    expect(Page::where('slug', 'invalid-media-page')->exists())->toBeFalse();
+});

@@ -14,11 +14,8 @@ class EventController extends PublicController
     public function index(): Response
     {
         return $this->render('public/events/index', [
-            'upcoming' => Event::published()->upcoming()->orderBy('starts_at')->orderBy('start_date')->get($this->columns()),
-            'past' => Event::published()->get($this->columns())
-                ->filter(fn (Event $e) => ! $this->isUpcoming($e))
-                ->sortByDesc(fn (Event $e) => $e->starts_at ?? $e->start_date)
-                ->values(),
+            'upcoming' => Event::published()->upcoming()->get($this->columns()),
+            'past' => Event::published()->past()->get($this->columns()),
             'seo' => $this->seo('Events'),
         ]);
     }
@@ -42,7 +39,7 @@ class EventController extends PublicController
                 'date' => $this->displayDate($event)?->toDateString(),
                 'time' => $event->all_day || $event->starts_at === null
                     ? null
-                    : $event->starts_at->format('g:i A'),
+                    : $event->starts_at->setTimezone($event->timezone)->format('g:i A'),
                 'all_day' => (bool) $event->all_day,
                 'is_virtual' => (bool) $event->is_virtual,
                 'location_name' => $event->location_name,
@@ -85,10 +82,7 @@ class EventController extends PublicController
             return $event->start_date?->copy();
         }
 
-        // starts_at is stored and shown as the entered wall-clock time (the app
-        // runs in UTC and does not shift stored times), so bucket by its date
-        // as-is rather than re-projecting through a timezone.
-        return $event->starts_at?->copy()->startOfDay();
+        return $event->starts_at?->setTimezone($event->timezone)->startOfDay();
     }
 
     public function show(string $slug, BlockHydrator $hydrator): Response
@@ -108,12 +102,5 @@ class EventController extends PublicController
     private function columns(): array
     {
         return ['id', 'title', 'slug', 'starts_at', 'ends_at', 'start_date', 'end_date', 'all_day', 'timezone', 'location_name', 'is_virtual'];
-    }
-
-    private function isUpcoming(Event $event): bool
-    {
-        $end = $event->all_day ? ($event->end_date ?? $event->start_date) : ($event->ends_at ?? $event->starts_at);
-
-        return $end !== null && $end->isFuture();
     }
 }

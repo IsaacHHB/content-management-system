@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\MediaAsset;
 use App\Models\Setting;
+use App\Rules\ExistingImageAsset;
 use App\Services\MediaReferenceSynchronizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -92,7 +93,7 @@ class SettingController extends Controller
         foreach ($settings as $key => $value) {
             if (in_array($key, $mediaKeys, true)) {
                 $mediaId = is_array($value) ? ($value['media_asset_id'] ?? null) : $value;
-                Validator::make(['id' => $mediaId], ['id' => ['nullable', 'integer', 'exists:media_assets,id']])->validate();
+                Validator::make(['id' => $mediaId], ['id' => ['nullable', 'integer', new ExistingImageAsset]])->validate();
                 $mediaIds[$key] = is_numeric($mediaId) ? (int) $mediaId : null;
 
                 continue;

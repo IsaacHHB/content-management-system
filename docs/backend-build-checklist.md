@@ -1,8 +1,8 @@
 # Native Dads Network CMS — Backend Build Checklist
 
-Last updated: July 10, 2026
+Last updated: July 11, 2026
 
-This checklist tracks local database and Laravel backend work based on `docs/ndn-cms-build-schematic.md`. Frontend, AWS, production deployment, and server configuration are intentionally out of scope for this phase.
+This checklist tracks local database and Laravel backend work based on `docs/ndn-cms-build-schematic.md`, plus the July 11 full-codebase audit. AWS, production deployment, and server configuration remain intentionally out of scope for the local phase.
 
 ## Completed
 
@@ -20,7 +20,7 @@ This checklist tracks local database and Laravel backend work based on `docs/ndn
 
 ### Database structure
 
-- [x] Added administrator account status, last-login timestamp, and soft deletes to users.
+- [x] Added administrator account status and last-login timestamp; accounts are retained and deactivated rather than deleted.
 - [x] Added invite records with hashed tokens, pending-email uniqueness, roles, expiration, and acceptance history.
 - [x] Added pages with hierarchy, locale-aware sibling slugs, JSON blocks, publishing, SEO, locking, sorting, audit columns, and soft deletes.
 - [x] Added programs with JSON blocks, publishing, SEO, contact details, sorting, audit columns, and soft deletes.
@@ -43,7 +43,7 @@ This checklist tracks local database and Laravel backend work based on `docs/ndn
 - [x] Added reusable published query scope and `isPublished()` behavior.
 - [x] Added page path generation and SQLite/MySQL-consistent root slug uniqueness support.
 - [x] Added event upcoming/in-progress query behavior.
-- [x] Added local media collections and image conversions.
+- [x] Added local media collections plus queued thumb/medium/large and WebP conversions.
 - [x] Added cached site settings with automatic cache invalidation.
 
 ### Authentication and authorization
@@ -51,7 +51,7 @@ This checklist tracks local database and Laravel backend work based on `docs/ndn
 - [x] Disabled public Fortify registration.
 - [x] Added exact-match, case-insensitive administrator email-domain validation.
 - [x] Added login-time enforcement for active accounts and allowed email domains.
-- [x] Added request-time CMS middleware that logs out unauthorized or deactivated accounts.
+- [x] Added global request-time web middleware that logs out unauthorized or deactivated sessions, including Fortify/passkey endpoints.
 - [x] Added hashed, expiring, single-use invite creation and acceptance.
 - [x] Added queued invite email support using the local log mailer.
 - [x] Added database transactions and row locking around invite acceptance.
@@ -76,7 +76,7 @@ This checklist tracks local database and Laravel backend work based on `docs/ndn
 - [x] Added reorder endpoints for programs, galleries, and team members.
 - [x] Added page path-change redirect generation for renamed pages and their descendants.
 - [x] Added media deletion protection for block references, galleries, SEO images, and team photos.
-- [x] Added signed, one-hour JSON preview links for draft pages, programs, events, and posts.
+- [x] Added signed preview links for draft pages, programs, events, and posts. Shared links from `PreviewLinkController` expire in **1 hour**; the URL embedded in the edit screen's preview iframe (`ContentController::previewUrl`) expires in **6 hours** so it survives a long editing session. Both are signed and scoped to a single model key.
 - [x] Added super-admin restore and permanent-delete endpoints for soft-deleted content.
 - [x] Added date-only start/end fields and upcoming-query behavior for all-day events.
 - [x] Added privacy-preserving request IP hashes to activity records and weekly activity retention cleanup.
@@ -98,7 +98,7 @@ This checklist tracks local database and Laravel backend work based on `docs/ndn
 - [x] Ran TypeScript, ESLint, Prettier, client build, and Inertia SSR build successfully.
 - [x] Added module-level CRUD/policy coverage for programs, posts/categories, galleries, team members, menus, recovery, previews, and settings media references.
 - [x] Added endpoint coverage for timed/all-day events, private local document uploads, categories, contact inbox management, and user-management boundaries.
-- [x] Ran the full Pest suite: 70 tests, 68 passed, 2 intentionally skipped, 253 assertions.
+- [x] Ran the full Pest suite: 116 tests, 114 passed, 2 intentionally skipped, 488 assertions.
 - [x] Verified CMS routes and scheduled commands are registered.
 
 ## Audit follow-up (July 10, 2026)
@@ -128,12 +128,62 @@ A full adversarial re-audit of the claimed-done backend confirmed every mechanic
 
 ## Remaining backend enhancements
 
-- [ ] Add production-grade media quarantine/finalize flow, magic-byte validation, HEIC conversion, EXIF stripping, WebP conversions, and queued processing.
+- [x] MIME-sniff and decode images, cap dimensions/size, require image alt text, strip original EXIF/metadata, and generate queued standard + WebP conversions.
+- [ ] Add HEIC/HEIF transcoding and deploy-time codec health checks before accepting HEIC uploads.
+- [ ] Add a resumable quarantine/finalize/checksum flow only if future direct or large-file uploads require it.
+- [ ] Add responsive-image `srcset` generation/consumption through a shared public image component.
+
+## Full-codebase audit follow-up (July 11, 2026)
+
+- [x] Added nonce-based CSP, X-Content-Type-Options, SAMEORIGIN framing, no-referrer, Permissions-Policy, and production HTTPS HSTS middleware.
+- [x] Added safe custom-menu URL validation to reject script, protocol-relative, malformed, and backslash-smuggled targets.
+- [x] Fixed permanent public-menu cache staleness and added nested public navigation rendering.
+- [x] Normalized invite/profile emails before uniqueness checks and storage.
+- [x] Enforced uncompromised 12-character invite passwords.
+- [x] Converted timed event input from its selected IANA time zone to UTC storage and back to that zone for forms/public display.
+- [x] Added published-content `sitemap.xml`, crawler exclusions, canonical tags, and expanded OpenGraph/Twitter metadata.
+- [x] Removed HTML injection sinks from pagination labels.
+- [x] Reject missing, deleted, or non-image assets from image/OG/logo/photo/gallery references with validation errors instead of database failures.
+- [x] Restricted dashboard contact counts to users authorized to manage contacts.
+- [x] Verified the seeded local Isaac account is active, has the `admin` role, and its configured local password hash matches.
+- [x] Composer and npm audits report zero known dependency advisories.
+
+## Independent re-audit (July 11, 2026 — second pass)
+
+An independent pass over the audit above ran the toolchain from scratch and exercised the app in a real browser with the SSR runtime on. It found the previous round's PHPStan/browser claims overstated and surfaced defects the automated checks could not see. All are fixed and covered by `tests/Feature/AuditFollowUpTest.php` (7 tests).
+
+### Corrections to previously claimed status
+
+- **PHPStan was not clean.** The new `SitemapController` produced 7 level-7 errors (`Collection` template invariance). `urls()` now builds a `list<>` and streams with `lazy()`. Level 7 is genuinely clean again.
+- **The "manual browser smoke test" had not been re-run after the CSP landed**, so the two defects below shipped unnoticed. Both are browser-only failures — the whole PHP/TS/build suite stays green while the UI is broken.
+
+### Fixed
+
+- [x] **The CSP broke every admin screen under SSR.** `style-src` carried a nonce *and* `'unsafe-inline'`; per CSP Level 3 a nonce makes browsers **ignore `'unsafe-inline'`**, so inline `style="..."` attributes were dropped. SSR emits the sidebar's `style="--sidebar-width:16rem"` into the server HTML, React does not re-apply it on hydration, the variable resolved empty, the sidebar spacer collapsed to `0`, and all admin content rendered *underneath* the fixed sidebar. Added `style-src-attr 'unsafe-inline'`. (Client-only rendering masked this: React sets styles via the CSSOM, which CSP does not block — it only appears once `inertia:start-ssr` runs, i.e. in production.)
+- [x] **The CSP blocked every YouTube embed.** `frame-src` allowed `youtube-nocookie.com`, but `registry.tsx` built `youtube.com/embed/...`. The renderer now emits `youtube-nocookie.com` (matches the CSP and avoids third-party cookies).
+- [x] **The last-super-admin guard was bypassable by type juggling.** `($data['is_active'] ?? true) === false` compares against *raw* input, so a form-encoded `is_active=0` (string `"0"`) skipped the guard while the model cast still wrote `false` — deactivating the only super admin and making `content.restore` / `content.force-delete` / super-admin grants permanently unreachable without DB access. Now compared via `filter_var(..., FILTER_VALIDATE_BOOL)`. (Regression test confirmed failing against the old code.)
+- [x] **All-day event dates rendered one day early.** `date`-cast columns still serialize as `"…T00:00:00.000000Z"`, so the `^\d{4}-\d{2}-\d{2}$` guard in `formatDate` never matched and any viewer west of UTC saw the previous day. Added an explicit `formatDateOnly()` for date-cast columns; `formatDate()` stays for true instants.
+- [x] **Editing an all-day event silently blanked its dates.** The same full-ISO value was fed to `<input type="date">`, which requires `YYYY-MM-DD` and renders empty — so opening an existing all-day event and pressing Save failed validation with no indication the date had been dropped. Added `toDateInput()`.
+- [x] **`published_at` walked backwards on every save.** The datetime-local input was rendered in *browser* wall-clock but re-parsed server-side in `app.timezone` (UTC), so an editor in LA re-saving an untouched post moved it 7 hours earlier, cumulatively. All five content forms now submit an absolute instant via `fromDatetimeLocal()`.
+- [x] **A same-day all-day event appeared in both Upcoming and Past.** `scopeUpcoming` compared dates while the controller's PHP `isUpcoming()` compared instants. Added `scopePast()` as the exact complement of `scopeUpcoming()` so the two lists cannot overlap or gap, and deleted the duplicated PHP logic.
+- [x] **Seeded event times were off by the UTC offset.** `LegacyContentSeeder` built wall-clock times in `app.timezone` (UTC) but stamped the rows `America/Los_Angeles`, so a 5:30 PM circle displayed as 10:30 AM. Times are now built in the event's zone and converted to UTC. **Existing seeded rows still hold the wrong instants — re-run the seeder to correct them.**
+- [x] **A re-slugged page left the public nav pointing at a dead URL forever.** `public_menus` caches *resolved* URLs, but only `Menu`/`MenuItem` busted it — renaming or trashing a linked Page/Post/Program/Event did not. Added the `InvalidatesMenuCache` concern to all four menu targets.
+- [x] **Cache invalidation ran inside the transaction.** Model `saved` hooks fire pre-commit, so a concurrent read could re-populate a `rememberForever` key with pre-commit data and keep it forever. All invalidation now goes through `CacheInvalidation::forgetAfterCommit()`.
+- [x] **The visual editor swallowed failed draft saves.** `page-canvas.tsx` never checked `response.ok`, so a 422 (invalid block) or 419 (expired session) resolved silently and the preview iframe showed stale blocks while the author believed the edit had persisted. It now surfaces the failure and refuses to switch to a misleading preview.
+- [x] **`robots.txt` advertised a relative `Sitemap:` URL**, which crawlers ignore. Now served from a route so it emits the absolute `route('sitemap')`.
+- [x] **Gallery edit was N+1** (`mediaAssets` → `mediaAssets.media`; `MediaAsset` appends `url`/`thumb_url`, each hitting `getFirstMedia()`), and the gallery index's photo-count column was permanently blank. Added an `indexCounts()` hook using `withCount`.
+
+### Known, accepted behavior (not defects — documented so it isn't mistaken for one)
+
+- **"Editor" is broader than the name suggests.** `RolePermissionSeeder` grants editors `.publish` on all seven content modules and `media.manage`, and `ContentPolicy::update` has no ownership check, so an editor can edit and publish another user's content. Only *deletion* is restricted to their own drafts. Tighten the seeder if that is not intended.
+- **The contact form's minimum-submit-time check is client-supplied** (`form_started_at`) and therefore forgeable. The honeypot, `throttle:3,10`, and HMAC IP hash still apply.
+- **`img-src 'self'`** means media URLs must be same-origin. Media URLs are absolute and derived from `APP_URL`, so `APP_URL` must match the host the site is actually served from in production.
 
 ## Deferred by design
 
-- [ ] React/Inertia admin screens and all public frontend work.
+- [x] React/Inertia admin screens and functional public frontend (brand-design polish remains deferred).
 - [ ] S3, CloudFront, SES production transport, and direct multipart upload workflow.
 - [ ] MySQL production migration details and generated-column optimization.
 - [ ] AWS/server provisioning, deployment automation, backups, monitoring, and production scheduling.
-- [ ] Legacy website scrape/import and production redirect map.
+- [x] Curated legacy content/media import seeders.
+- [ ] Manual production legacy-URL redirect inventory and redirect-management UI.

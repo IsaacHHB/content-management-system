@@ -34,6 +34,44 @@ test('timed and all day events validate and persist through the admin endpoint',
         ->and($allDay->start_date)->not->toBeNull();
 });
 
+test('timed events are converted from their selected timezone to utc', function () {
+    $this->actingAs($this->admin)->postJson(route('admin.events.store'), [
+        'title' => 'Pacific Gathering', 'description' => [], 'status' => 'draft',
+        'starts_at' => '2026-08-12T06:30', 'ends_at' => '2026-08-12T08:00',
+        'all_day' => false, 'timezone' => 'America/Los_Angeles', 'is_virtual' => false,
+    ])->assertRedirect();
+
+    $event = Event::latest('id')->firstOrFail();
+    expect($event->starts_at?->utc()->format('Y-m-d H:i'))->toBe('2026-08-12 13:30')
+        ->and($event->ends_at?->utc()->format('Y-m-d H:i'))->toBe('2026-08-12 15:00');
+});
+
+test('image uploads require alternative text and a decodable image', function () {
+    Storage::fake('local');
+    config(['media-library.disk_name' => 'local']);
+
+    $this->actingAs($this->admin)->postJson(route('admin.media.store'), [
+        'file' => UploadedFile::fake()->image('family.jpg'),
+    ])->assertUnprocessable();
+
+    expect(MediaAsset::count())->toBe(0);
+});
+
+test('image uploads are processed and receive standard and webp conversions', function () {
+    Storage::fake('local');
+    config(['media-library.disk_name' => 'local']);
+
+    $this->actingAs($this->admin)->postJson(route('admin.media.store'), [
+        'file' => UploadedFile::fake()->image('family.jpg', 1200, 800),
+        'alt_text' => 'A family at a community gathering',
+    ])->assertRedirect();
+
+    $media = MediaAsset::latest('id')->firstOrFail()->getFirstMedia('original');
+    expect($media)->not->toBeNull()
+        ->and($media?->hasGeneratedConversion('thumb'))->toBeTrue()
+        ->and($media?->hasGeneratedConversion('thumb-webp'))->toBeTrue();
+});
+
 test('documents upload to the private local media disk and can be deleted when unused', function () {
     Storage::fake('local');
     config(['media-library.disk_name' => 'local']);

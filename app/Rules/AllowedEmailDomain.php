@@ -12,7 +12,9 @@ class AllowedEmailDomain implements ValidationRule
     {
         $domain = Str::lower(Str::afterLast((string) $value, '@'));
 
-        if (! in_array($domain, config('admin.allowed_domains', []), true)) {
+        $allowed = array_map(static fn (mixed $allowedDomain): string => Str::lower(trim((string) $allowedDomain)), config('admin.allowed_domains', []));
+
+        if (! in_array($domain, $allowed, true)) {
             $fail('Administrator accounts must use an official Native Dads Network email address.');
         }
     }

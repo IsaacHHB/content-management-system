@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\PublishStatus;
 use App\Models\Gallery;
+use App\Rules\ExistingImageAsset;
 use App\Services\BlockRenderer;
 use App\Services\MediaReferenceSynchronizer;
 use Illuminate\Database\Eloquent\Model;
@@ -32,6 +33,13 @@ class GalleryController extends ContentController
 
     protected function editRelations(): array
     {
+        // `.media` is required: MediaAsset appends `url`/`thumb_url`, each of which
+        // hits getFirstMedia() — without it a 40-photo gallery lazy-loads 40 times.
+        return ['mediaAssets.media'];
+    }
+
+    protected function indexCounts(): array
+    {
         return ['mediaAssets'];
     }
 
@@ -41,7 +49,7 @@ class GalleryController extends ContentController
             'title' => ['required', 'string', 'max:255'], 'slug' => ['nullable', 'alpha_dash', 'max:255', Rule::unique('galleries')->ignore($model?->getKey())->whereNull('deleted_at')],
             'description' => ['nullable', 'string', 'max:5000'], 'status' => ['required', Rule::enum(PublishStatus::class)], 'published_at' => ['nullable', 'date'],
             'sort_order' => ['sometimes', 'integer', 'min:0'], 'media_assets' => ['sometimes', 'array'],
-            'media_assets.*.id' => ['required', 'integer', 'distinct', 'exists:media_assets,id'], 'media_assets.*.alt_text' => ['required', 'string', 'max:255'],
+            'media_assets.*.id' => ['required', 'integer', 'distinct', new ExistingImageAsset], 'media_assets.*.alt_text' => ['required', 'string', 'max:255'],
             'media_assets.*.caption' => ['nullable', 'string', 'max:2000'], 'media_assets.*.sort_order' => ['required', 'integer', 'min:0'],
         ];
     }

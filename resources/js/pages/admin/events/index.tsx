@@ -16,7 +16,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatDate, formatDateTime } from '@/lib/format';
+import { formatDateOnly, formatDateTime } from '@/lib/format';
 import type { NdnEvent, Paginated } from '@/types/models';
 
 function isUpcoming(event: NdnEvent, now: Date, today: string): boolean {
@@ -33,17 +33,17 @@ function isUpcoming(event: NdnEvent, now: Date, today: string): boolean {
 
 function eventDateLabel(event: NdnEvent): string {
     if (event.all_day) {
-        const start = formatDate(event.start_date);
+        const start = formatDateOnly(event.start_date);
 
         return event.end_date
-            ? `${start} – ${formatDate(event.end_date)}`
+            ? `${start} – ${formatDateOnly(event.end_date)}`
             : start;
     }
 
-    const start = formatDateTime(event.starts_at);
+    const start = formatDateTime(event.starts_at, event.timezone);
 
     return event.ends_at
-        ? `${start} – ${formatDateTime(event.ends_at)}`
+        ? `${start} – ${formatDateTime(event.ends_at, event.timezone)}`
         : start;
 }
 

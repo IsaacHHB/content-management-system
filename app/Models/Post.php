@@ -7,6 +7,7 @@ use App\Enums\PublishStatus;
 use App\Models\Concerns\HasEditorialAudit;
 use App\Models\Concerns\HasPublishing;
 use App\Models\Concerns\HasReusableSlug;
+use App\Models\Concerns\InvalidatesMenuCache;
 use App\Models\Concerns\RecordsActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,7 +27,7 @@ use Spatie\Sluggable\SlugOptions;
  */
 class Post extends Model implements SoftDeletableContent
 {
-    use HasEditorialAudit, HasPublishing, HasReusableSlug, HasSlug, LogsActivity, RecordsActivity, SoftDeletes {
+    use HasEditorialAudit, HasPublishing, HasReusableSlug, HasSlug, InvalidatesMenuCache, LogsActivity, RecordsActivity, SoftDeletes {
         RecordsActivity::getActivitylogOptions insteadof LogsActivity;
     }
 
